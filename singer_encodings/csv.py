@@ -1,18 +1,16 @@
 import codecs
 import csv
 
+SDC_EXTRA_COLUMN = "_sdc_extra"
 
 def generator_wrapper(reader):
     for row in reader:
         to_return = {}
         for key, value in row.items():
             if key is None:
-                key = '_s3_extra'
+                key = SDC_EXTRA_COLUMN
 
             formatted_key = key
-
-            # remove non-word, non-whitespace characters
-            #formatted_key = re.sub(r"[^\w\s]", '', formatted_key)
 
             to_return[formatted_key] = value
 
