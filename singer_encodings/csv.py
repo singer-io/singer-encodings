@@ -3,20 +3,6 @@ import csv
 
 SDC_EXTRA_COLUMN = "_sdc_extra"
 
-def generator_wrapper(reader):
-    for row in reader:
-        to_return = {}
-        for key, value in row.items():
-            if key is None:
-                key = SDC_EXTRA_COLUMN
-
-            formatted_key = key
-
-            to_return[formatted_key] = value
-
-        yield to_return
-
-
 def get_row_iterator(iterable, options=None):
     options = options or {}
     file_stream = codecs.iterdecode(iterable, encoding='utf-8')
@@ -24,7 +10,7 @@ def get_row_iterator(iterable, options=None):
     field_names = None
 
     # Replace any NULL bytes in the line given to the DictReader
-    reader = csv.DictReader((line.replace('\0', '') for line in file_stream), fieldnames=field_names)
+    reader = csv.DictReader((line.replace('\0', '') for line in file_stream), fieldnames=field_names, restkey=SDC_EXTRA_COLUMN)
 
     headers = set(reader.fieldnames)
     if options.get('key_properties'):
@@ -39,4 +25,4 @@ def get_row_iterator(iterable, options=None):
             raise Exception('CSV file missing date_overrides headers: {}, file only contains headers for fields: {}'
                             .format(date_overrides - headers, headers))
 
-    return generator_wrapper(reader)
+    return reader
