@@ -10,7 +10,7 @@ def get_row_iterator(iterable, options=None):
     field_names = None
 
     # Replace any NULL bytes in the line given to the DictReader
-    reader = csv.DictReader((line.replace('\0', '') for line in file_stream), fieldnames=field_names, restkey=SDC_EXTRA_COLUMN)
+    reader = csv.DictReader((line.replace('\0', '') for line in file_stream), fieldnames=field_names, restkey=SDC_EXTRA_COLUMN, delimiter=options.get('delimiter', ','))
 
     headers = set(reader.fieldnames)
     if options.get('key_properties'):
