@@ -1,0 +1,24 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: 218546966473.dkr.ecr.us-east-1.amazonaws.com/circle-ci:tap-tester
+    steps:
+      - checkout
+      - run:
+          name: 'Setup virtualenv'
+          command: |
+            virtualenv -p python3 /usr/local/share/virtualenvs/singer-encodings
+            source /usr/local/share/virtualenvs/singer-encodings/bin/activate
+            pip install .[dev]
+      - run:
+          name: 'Unit tests'
+          command: |
+            source /usr/local/share/virtualenvs/singer-encodings/bin/activate
+            nosetests
+
+workflows:
+  version: 2
+  commit:
+    jobs:
+      - build

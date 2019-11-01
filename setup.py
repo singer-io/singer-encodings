@@ -11,5 +11,8 @@ setup(name="singer-encodings",
       url="http://singer.io",
       install_requires=[
       ],
+      extras_require={
+          "dev": ["nose"]
+      },
       packages=find_packages(),
 )
