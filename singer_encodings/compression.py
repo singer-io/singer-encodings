@@ -8,8 +8,8 @@ def infer(iterable, file_name):
     if not file_name:
         raise Exception("Need file name")
 
-    if file_name.endswith('.tar.gz') or file_name.endswith('.tar.bz2'):
-        with tarfile.open(fileobj=iterable, mode='r') as tar:
+    if file_name.endswith('.tar.gz') or file_name.endswith('.tar.bz2') or file_name.endswith('.tar'):
+        with tarfile.open(fileobj=iterable, mode='r|*') as tar:
             for tarmember in tar.getmembers():
                 yield tar.extractfile(tarmember)
     elif file_name.endswith('.gz'):
