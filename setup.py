@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 import subprocess
 
 setup(name="singer-encodings",
-      version='0.0.5',
+      version='0.0.6',
       description="Singer.io encodings library",
       author="Stitch",
       classifiers=['Programming Language :: Python :: 3 :: Only'],
