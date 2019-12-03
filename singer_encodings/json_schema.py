@@ -59,7 +59,8 @@ def sample_file(conn, table_spec, f, sample_rate, max_records):
     empty_file = False
     if len(samples) == 0:
         empty_file = True
-        samples.append({name: None for name in iterator.fieldnames})
+        # Assumes all reader objects in readers have the same fieldnames
+        samples.append({name: None for name in reader.fieldnames})
 
     return (empty_file, samples)
 
