@@ -38,7 +38,7 @@ def sample_file(conn, table_spec, f, sample_rate, max_records):
     # Add file_name to opts and flag infer_compression to support gzipped files
     opts = {'key_properties': table_spec['key_properties'],
             'delimiter': table_spec['delimiter'],
-            'encoding': table_spec.get('encoding'),
+            'encoding': table_spec.get('encoding', 'utf-8'),
             'file_name': f['filepath']}
 
     readers = csv.get_row_iterators(file_handle, options=opts, infer_compression=True)
