@@ -10,6 +10,7 @@ setup(name="singer-encodings",
       classifiers=['Programming Language :: Python :: 3 :: Only'],
       url="http://singer.io",
       install_requires=[
+          "singer-python"
       ],
       extras_require={
           "dev": ["nose"]

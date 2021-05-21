@@ -1,12 +1,10 @@
 import csv
-import json
 import singer
-
-LOGGER = singer.get_logger()
 
 SDC_EXTRA_COLUMN = "_sdc_extra"
 NO_HEADERS = "no_headers"
 
+LOGGER = singer.get_logger()
 
 class CSVHelper:
     """
@@ -78,7 +76,7 @@ class CSVHelper:
 
                 # If number of values provided in the row are greater than CSV headers
                 else:
-                    sdc_extra_values.append(json.dumps({ NO_HEADERS : row[all_csv_headers_length:] }))
+                    sdc_extra_values.append({ NO_HEADERS : row[all_csv_headers_length:] })
 
                 # Fetching the values of only unique headers
                 row_dict = dict(zip(self.unique_headers, map(row.__getitem__, new_unique_headers_idxs)))
@@ -93,7 +91,7 @@ class CSVHelper:
                 dup_dictionary = self.generate_dict_from_zipped_data(dup_zipped)
 
                 # Adding dictionary of duplicate header,values in _sdc_extra field as string
-                sdc_extra_values.extend([json.dumps({dup_head : dup_val}) for dup_head, dup_val in dup_dictionary.items()])
+                sdc_extra_values.extend([{dup_head : dup_val} for dup_head, dup_val in dup_dictionary.items()])
 
                 if len(sdc_extra_values) > 0:
                     row_dict.update({ SDC_EXTRA_COLUMN : sdc_extra_values})
@@ -105,7 +103,7 @@ class CSVHelper:
                     row_dict = dict(zip(self.all_csv_headers, row[0:len(self.unique_headers)]))
 
                     # Adding extra column values in _sdc_extra key
-                    row_dict.update({ SDC_EXTRA_COLUMN : [json.dumps({ NO_HEADERS : row[len(self.unique_headers):] })] })
+                    row_dict.update({ SDC_EXTRA_COLUMN : [{ NO_HEADERS : row[len(self.unique_headers):] }] })
 
                 else:
                     row_dict = dict(zip(self.all_csv_headers, row))
@@ -127,9 +125,9 @@ class CSVHelper:
             not_in_catalog = headers_in_catalog and header not in headers_in_catalog
             if header in self.unique_headers or not_in_catalog:
 
-                # check whether header is not in catalog and it is not already in duplicate headers list
+                 # check whether header is not in catalog and it is not already in duplicate headers list
                 if not_in_catalog and header not in self.duplicate_headers:
-                    LOGGER.debug("\"%s\" field is not found in catalog and its value will be stored in the \"_sdc_extra\" field.",header)
+                    LOGGER.warn("\"%s\" field is not found in catalog and its value will be stored in the \"_sdc_extra\" field.",header)
 
                 self.duplicate_headers.append(header)
                 self.dup_headers_idxs.append(header_index)
@@ -137,6 +135,7 @@ class CSVHelper:
                 self.unique_headers.append(header)
                 self.unique_headers_idxs.append(header_index)
             header_index += 1
+
 
         # Check whether duplicate headers are present or not
         if len(self.dup_headers_idxs) > 0:

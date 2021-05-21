@@ -1,10 +1,8 @@
 import codecs
 import csv
-from singer_encodings.csv_helper import CSVHelper
+from singer_encodings.csv_helper import (CSVHelper, SDC_EXTRA_COLUMN)
 
 from . import compression
-
-SDC_EXTRA_COLUMN = "_sdc_extra"
 
 def get_row_iterators(iterable, options={}, infer_compression=False):
     """Accepts an interable, options and a flag to infer compression and yields
