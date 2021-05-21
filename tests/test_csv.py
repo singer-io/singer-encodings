@@ -10,7 +10,7 @@ class TestRestKey(unittest.TestCase):
     def test(self):
         row_iterator = csv.get_row_iterator(self.csv_data)
         rows = [r for r in row_iterator]
-        self.assertEqual(rows[0]['_sdc_extra'], ['4'])
+        self.assertEquals(rows[0]['_sdc_extra'], ['4'])
 
 class TestNullBytes(unittest.TestCase):
 
@@ -19,7 +19,7 @@ class TestNullBytes(unittest.TestCase):
     def test(self):
         row_iterator = csv.get_row_iterator(self.csv_data)
         rows = [r for r in row_iterator]
-        self.assertEqual(rows[0]['columnB'], '2')
+        self.assertEquals(rows[0]['columnB'], '2')
 
 class TestOptions(unittest.TestCase):
 
@@ -28,14 +28,14 @@ class TestOptions(unittest.TestCase):
     def test(self):
         row_iterator = csv.get_row_iterator(self.csv_data, options={'key_properties': ['columnA']})
         rows = [r for r in row_iterator]
-        self.assertEqual(rows[0]['columnA'], '1')
+        self.assertEquals(rows[0]['columnA'], '1')
 
         with self.assertRaises(Exception):
             row_iterator = csv.get_row_iterator(self.csv_data, options={'key_properties': ['fizz']})
 
         row_iterator = csv.get_row_iterator(self.csv_data, options={'date_overrides': ['columnA']})
         rows = [r for r in row_iterator]
-        self.assertEqual(rows[0]['columnA'], '1')
+        self.assertEquals(rows[0]['columnA'], '1')
 
         with self.assertRaises(Exception):
             row_iterator = csv.get_row_iterator(self.csv_data, options={'date_overrides': ['fizz']})
@@ -47,7 +47,7 @@ class TestRestKeyWithDuplicateHeader(unittest.TestCase):
     def test(self):
         row_iterator = csv.get_row_iterator(self.csv_data, None, None, True)
         rows = [r for r in row_iterator]
-        self.assertEqual(rows[0]['_sdc_extra'], [{"no_headers": ["4"]}])
+        self.assertEquals(rows[0]['_sdc_extra'], [{"no_headers": ["4"]}])
 
 class TestRestValue(unittest.TestCase):
 
@@ -56,7 +56,7 @@ class TestRestValue(unittest.TestCase):
     def test(self):
         row_iterator = csv.get_row_iterator(self.csv_data, None, None, True)
         rows = [r for r in row_iterator]
-        self.assertEqual(list(rows[0].keys()), ["columnA","columnB"])
+        self.assertEquals(list(rows[0].keys()), ["columnA","columnB"])
 
 class TestDuplicateHeaders(unittest.TestCase):
 
@@ -65,8 +65,8 @@ class TestDuplicateHeaders(unittest.TestCase):
     def test(self):
         row_iterator = csv.get_row_iterator(self.csv_data, None, None, True)
         rows = [r for r in row_iterator]
-        self.assertEqual(rows[0]['_sdc_extra'], [{"columnB": "4"},{"columnC": ["5", "6"]}])
-        self.assertEqual(list(rows[0].keys()), ["columnA","columnB","columnC","_sdc_extra"])
+        self.assertEquals(rows[0]['_sdc_extra'], [{"columnB": "4"},{"columnC": ["5", "6"]}])
+        self.assertEquals(list(rows[0].keys()), ["columnA","columnB","columnC","_sdc_extra"])
 
 class TestDuplicateHeadersRestKey(unittest.TestCase):
 
@@ -75,8 +75,8 @@ class TestDuplicateHeadersRestKey(unittest.TestCase):
     def test(self):
         row_iterator = csv.get_row_iterator(self.csv_data, None, None, True)
         rows = [r for r in row_iterator]
-        self.assertEqual(rows[0]['_sdc_extra'],  [{"no_headers": ["7", "8", "9"]},{"columnB": "4"},{"columnC": ["5", "6"]}])
-        self.assertEqual(list(rows[0].keys()), ["columnA","columnB","columnC","_sdc_extra"])
+        self.assertEquals(rows[0]['_sdc_extra'],  [{"no_headers": ["7", "8", "9"]},{"columnB": "4"},{"columnC": ["5", "6"]}])
+        self.assertEquals(list(rows[0].keys()), ["columnA","columnB","columnC","_sdc_extra"])
 
 class TestDuplicateHeadersRestValue(unittest.TestCase):
 
@@ -85,8 +85,8 @@ class TestDuplicateHeadersRestValue(unittest.TestCase):
     def test(self):
         row_iterator = csv.get_row_iterator(self.csv_data, None, None, True)
         rows = [r for r in row_iterator]
-        self.assertEqual(rows[0]['_sdc_extra'], [{"columnB": "4"},{"columnC": "5"}])
-        self.assertEqual(list(rows[0].keys()), ["columnA","columnB","columnC","_sdc_extra"])
+        self.assertEquals(rows[0]['_sdc_extra'], [{"columnB": "4"},{"columnC": "5"}])
+        self.assertEquals(list(rows[0].keys()), ["columnA","columnB","columnC","_sdc_extra"])
 
 class TestDuplicateHeadersRestValueNoSDCExtra(unittest.TestCase):
 
@@ -95,17 +95,17 @@ class TestDuplicateHeadersRestValueNoSDCExtra(unittest.TestCase):
     def test(self):
         row_iterator = csv.get_row_iterator(self.csv_data, None, None, True)
         rows = [r for r in row_iterator]
-        self.assertEqual(list(rows[0].keys()), ["columnA","columnB","columnC"])
+        self.assertEquals(list(rows[0].keys()), ["columnA","columnB","columnC"])
 
 class TestMissingFiedInCatalog(unittest.TestCase):
 
     csv_data = [b"columnA,columnB,columnC,columnB,columnC,columnC", b"1,2,3,4,5,6"]
 
-    def test(self, mocked_logger_warning):
+    def test(self):
         row_iterator = csv.get_row_iterator(self.csv_data, None, ["columnA","columnB"], True)
         rows = [r for r in row_iterator]
         self.assertListEqual(rows[0]['_sdc_extra'], [{"columnC": ["3", "5", "6"]},{"columnB": "4"}])
-        self.assertEqual(list(rows[0].keys()), ["columnA","columnB","_sdc_extra"])
+        self.assertEquals(list(rows[0].keys()), ["columnA","columnB","_sdc_extra"])
 
 
 class TestWarningForDupHeaders(unittest.TestCase):
@@ -116,6 +116,6 @@ class TestWarningForDupHeaders(unittest.TestCase):
     def test(self, mocked_logger_warn):
         row_iterator = csv.get_row_iterator(self.csv_data, None, None, True)
         rows = [r for r in row_iterator]
-        self.assertEqual(list(rows[0].keys()), ["columnA","columnB","columnC"])
+        self.assertEquals(list(rows[0].keys()), ["columnA","columnB","columnC"])
 
         mocked_logger_warn.assert_called_with('Duplicate Header(s) %s found in the csv and its value will be stored in the \"_sdc_extra\" field.', {'columnC'})
