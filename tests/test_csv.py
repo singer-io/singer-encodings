@@ -30,15 +30,21 @@ class TestOptions(unittest.TestCase):
         rows = [r for r in row_iterator]
         self.assertEqual(rows[0]['columnA'], '1')
 
-        with self.assertRaises(Exception):
+        try:
             row_iterator = csv.get_row_iterator(self.csv_data, options={'key_properties': ['fizz']})
+        except Exception as ex:
+            expected_message = "CSV file missing required headers: {'fizz'}"
+            self.assertEquals(expected_message, str(ex))
 
         row_iterator = csv.get_row_iterator(self.csv_data, options={'date_overrides': ['columnA']})
         rows = [r for r in row_iterator]
         self.assertEqual(rows[0]['columnA'], '1')
 
-        with self.assertRaises(Exception):
+        try:
             row_iterator = csv.get_row_iterator(self.csv_data, options={'date_overrides': ['fizz']})
+        except Exception as ex:
+            expected_message = "CSV file missing date_overrides headers: {'fizz'}"
+            self.assertEquals(expected_message, str(ex))
 
 class TestRestKeyWithDuplicateHeader(unittest.TestCase):
 

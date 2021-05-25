@@ -32,7 +32,7 @@ def get_row_iterator(iterable, options=None, headers_in_catalog = None, with_dup
         # It will store the duplicate headers and its value in the '_sdc_extra' field
         csv_helper = CSVHelper()
         reader = csv_helper.get_row_iterator(file_stream, delimiter, headers_in_catalog)
-        headers = csv_helper.unique_headers
+        headers = set(csv_helper.unique_headers)
     else :
         # Replace any NULL bytes in the line given to the DictReader
         reader = csv.DictReader((line.replace('\0', '') for line in file_stream), fieldnames=None, restkey=SDC_EXTRA_COLUMN, delimiter=delimiter)
