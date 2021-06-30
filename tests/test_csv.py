@@ -152,3 +152,11 @@ class TestWarningForDupHeaders(unittest.TestCase):
         self.assertEqual(list(rows[0].keys()), ["columnA","columnB","columnC"])
 
         mocked_logger_warn.assert_called_with('Duplicate Header(s) %s found in the csv and its value will be stored in the \"_sdc_extra\" field.', {'columnC'})
+
+
+class TestReturnNoneForEmptyCSV(unittest.TestCase):
+
+    @mock.patch("singer_encodings.csv_helper.LOGGER.warn")
+    def test_get_row_iterator_return_none_for_empty_csv(self, mocked_logger_warn):
+        row_iterator = csv.get_row_iterator([], None, None, True)
+        self.assertEqual(row_iterator,None)
