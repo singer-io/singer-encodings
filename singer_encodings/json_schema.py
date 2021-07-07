@@ -35,6 +35,10 @@ def sample_file(conn, table_spec, f, sample_rate, max_records):
     samples = []
     file_handle = conn.get_file_handle(f)
 
+    # return empty sample size if error occurs
+    if file_handle is None:
+        return False, []
+
     # Add file_name to opts and flag infer_compression to support gzipped files
     opts = {'key_properties': table_spec['key_properties'],
             'delimiter': table_spec['delimiter'],
