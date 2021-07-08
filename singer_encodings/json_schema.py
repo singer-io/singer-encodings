@@ -33,10 +33,9 @@ def sample_file(conn, table_spec, f, sample_rate, max_records):
     plurality = "s" if sample_rate != 1 else ""
 
     samples = []
-    file_handle = conn.get_file_handle(f)
-
-    # return empty sample size if error occurs
-    if file_handle is None:
+    try:
+        file_handle = conn.get_file_handle(f)
+    except OSError:
         return False, []
 
     # Add file_name to opts and flag infer_compression to support gzipped files
