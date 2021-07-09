@@ -6,15 +6,12 @@ import csv as _csv
 
 class SFTPConnection:
     def get_file_handle(self, f):
-        try:
-            if f.get("raise_error"):
-                raise OSError("OSError")
-            elif f.get("raise_permission_error"):
-                raise PermissionError("Permission denied")
-            else:
-                return mock.mock_open()
-        except OSError:
-            raise OSError
+        if f.get("raise_error"):
+            raise OSError("OSError")
+        elif f.get("raise_permission_error"):
+            raise PermissionError("Permission denied")
+        else:
+            return mock.mock_open()
 
 @mock.patch("singer_encodings.csv.get_row_iterators")
 class TestSampleFile(unittest.TestCase):
