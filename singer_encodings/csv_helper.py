@@ -117,7 +117,11 @@ class CSVHelper:
 
         # Replace any NULL bytes in the line given to the Reader
         reader = csv.reader((line.replace('\0', '') for line in file_stream), delimiter=delimiter)
-        self.all_csv_headers = next(reader)
+        try:
+            self.all_csv_headers = next(reader)
+        except StopIteration:
+            # Return None if CSV file is empty.
+            return None
         header_index = 0
 
         for header in self.all_csv_headers:
