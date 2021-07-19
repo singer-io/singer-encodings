@@ -43,6 +43,7 @@ def get_row_iterator(iterable, options=None, headers_in_catalog = None, with_dup
             headers = set()
             # setting fieldnames as empty list rather than None
             reader.fieldnames = []
+            return reader
 
     if options.get('key_properties'):
         key_properties = set(options['key_properties'])
