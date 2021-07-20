@@ -16,6 +16,10 @@ def get_schema_for_table(conn, table_spec):
 
     samples = sample_files(conn, table_spec, files)
 
+    # return empty schema if not samples are found
+    if samples == []:
+        return {}
+
     data_schema = {
         **generate_schema(samples, table_spec),
         SDC_SOURCE_FILE_COLUMN: {'type': 'string'},
