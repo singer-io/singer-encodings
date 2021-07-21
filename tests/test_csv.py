@@ -165,7 +165,7 @@ class TestFieldnamesEmptyForEmptyFile(unittest.TestCase):
 
     def test(self):
         row_iterator = csv.get_row_iterator([])
-        self.assertEquals(row_iterator.fieldnames, [])
+        self.assertEquals(row_iterator.fieldnames, None)
 
 class TestFieldnamesNonEmptyForEmptyFile(unittest.TestCase):
 
