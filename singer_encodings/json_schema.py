@@ -39,7 +39,10 @@ def sample_file(conn, table_spec, f, sample_rate, max_records):
     plurality = "s" if sample_rate != 1 else ""
 
     samples = []
-    file_handle = conn.get_file_handle(f)
+    try:
+        file_handle = conn.get_file_handle(f)
+    except OSError:
+        return (False, samples)
 
     # Add file_name to opts and flag infer_compression to support gzipped files
     opts = {'key_properties': table_spec['key_properties'],
