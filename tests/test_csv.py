@@ -160,3 +160,17 @@ class TestReturnNoneForEmptyCSV(unittest.TestCase):
     def test_get_row_iterator_return_none_for_empty_csv(self, mocked_logger_warn):
         row_iterator = csv.get_row_iterator([], None, None, True)
         self.assertEqual(row_iterator,None)
+
+class TestFieldnamesEmptyForEmptyFile(unittest.TestCase):
+
+    def test(self):
+        row_iterator = csv.get_row_iterator([])
+        self.assertEquals(row_iterator.fieldnames, None)
+
+class TestFieldnamesNonEmptyForEmptyFile(unittest.TestCase):
+
+    csv_data = [b"columnA,columnB", b"1,2"]
+
+    def test(self):
+        row_iterator = csv.get_row_iterator(self.csv_data)
+        self.assertEquals(row_iterator.fieldnames, ["columnA", "columnB"])

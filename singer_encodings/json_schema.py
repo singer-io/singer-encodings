@@ -16,8 +16,14 @@ def get_schema_for_table(conn, table_spec):
 
     samples = sample_files(conn, table_spec, files)
 
+    schema = generate_schema(samples, table_spec)
+
+    # return empty if there is no schema generated
+    if not schema:
+        return {}
+
     data_schema = {
-        **generate_schema(samples, table_spec),
+        **schema,
         SDC_SOURCE_FILE_COLUMN: {'type': 'string'},
         SDC_SOURCE_LINENO_COLUMN: {'type': 'integer'},
         csv.SDC_EXTRA_COLUMN: {'type': 'array', 'items': {'type': 'string'}},
@@ -63,7 +69,8 @@ def sample_file(conn, table_spec, f, sample_rate, max_records):
     if len(samples) == 0:
         empty_file = True
         # Assumes all reader objects in readers have the same fieldnames
-        samples.append({name: None for name in reader.fieldnames})
+        if reader.fieldnames is not None:
+            samples.append({name: None for name in reader.fieldnames})
 
     return (empty_file, samples)
 

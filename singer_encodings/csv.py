@@ -36,7 +36,11 @@ def get_row_iterator(iterable, options=None, headers_in_catalog = None, with_dup
     else :
         # Replace any NULL bytes in the line given to the DictReader
         reader = csv.DictReader((line.replace('\0', '') for line in file_stream), fieldnames=None, restkey=SDC_EXTRA_COLUMN, delimiter=delimiter)
-        headers = set(reader.fieldnames)
+        try:
+            headers = set(reader.fieldnames)
+        except TypeError:
+            # handle Nonetype error when empty file is found: tap-SFTP
+            pass
 
     if options.get('key_properties'):
         key_properties = set(options['key_properties'])
