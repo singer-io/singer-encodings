@@ -18,21 +18,21 @@ def get_schema_for_table(conn, table_spec):
 
     schema = generate_schema(samples, table_spec)
 
-    # only generate schema of schema is non-empty
-    if schema != {}:
-        data_schema = {
-            **schema,
-            SDC_SOURCE_FILE_COLUMN: {'type': 'string'},
-            SDC_SOURCE_LINENO_COLUMN: {'type': 'integer'},
-            csv.SDC_EXTRA_COLUMN: {'type': 'array', 'items': {'type': 'string'}},
-        }
-
-        return {
-            'type': 'object',
-            'properties': data_schema,
-        }
-    else:
+    # return empty if there is no schema generated
+    if not schema:
         return {}
+
+    data_schema = {
+        **schema,
+        SDC_SOURCE_FILE_COLUMN: {'type': 'string'},
+        SDC_SOURCE_LINENO_COLUMN: {'type': 'integer'},
+        csv.SDC_EXTRA_COLUMN: {'type': 'array', 'items': {'type': 'string'}},
+    }
+
+    return {
+        'type': 'object',
+        'properties': data_schema,
+    }
 
 def sample_file(conn, table_spec, f, sample_rate, max_records):
     table_name = table_spec['table_name']

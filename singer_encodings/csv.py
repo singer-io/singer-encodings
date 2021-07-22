@@ -39,7 +39,7 @@ def get_row_iterator(iterable, options=None, headers_in_catalog = None, with_dup
         try:
             headers = set(reader.fieldnames)
         except TypeError:
-            # handle Nonetype error when empty file is found
+            # handle Nonetype error when empty file is found: tap-SFTP
             pass
 
     if options.get('key_properties'):
