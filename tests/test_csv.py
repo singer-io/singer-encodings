@@ -151,7 +151,7 @@ class TestWarningForDupHeaders(unittest.TestCase):
         rows = [r for r in row_iterator]
         self.assertEqual(list(rows[0].keys()), ["columnA","columnB","columnC"])
 
-        mocked_logger_warn.assert_called_with('Duplicate Header(s) %s found in the csv and its value will be stored in the \"_sdc_extra\" field.', {'columnC'})
+        mocked_logger_warn.assert_called_with('\"%s\" header(s) are either not found in catalog or duplicate(s) in the csv. Hence its value will be stored in the \"_sdc_extra\" field.', {'columnC'})
 
 
 class TestReturnNoneForEmptyCSV(unittest.TestCase):
