@@ -23,7 +23,7 @@ def get_row_iterator(iterable, options=None, headers_in_catalog = None, with_dup
     options = options or {}
     reader = []
     headers = set()
-    file_stream = codecs.iterdecode(iterable, encoding='utf-8')
+    file_stream = codecs.iterdecode(iterable, encoding='utf-8-sig')
     delimiter = options.get('delimiter', ',')
 
     # Return the CSV key-values along with considering the duplicate headers, if any, in the CSV file
