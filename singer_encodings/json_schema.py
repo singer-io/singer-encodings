@@ -4,6 +4,7 @@ from . import csv
 
 SDC_SOURCE_FILE_COLUMN = "_sdc_source_file"
 SDC_SOURCE_LINENO_COLUMN = "_sdc_source_lineno"
+SDC_EXTRA_VALUE = {"type": "array", "items": {"type": "string"}}
 
 # TODO: Add additional logging
 
@@ -26,7 +27,7 @@ def get_schema_for_table(conn, table_spec):
         **schema,
         SDC_SOURCE_FILE_COLUMN: {'type': 'string'},
         SDC_SOURCE_LINENO_COLUMN: {'type': 'integer'},
-        csv.SDC_EXTRA_COLUMN: {'type': 'array', 'items': {'type': 'string'}},
+        csv.SDC_EXTRA_COLUMN: SDC_EXTRA_VALUE,
     }
 
     return {
