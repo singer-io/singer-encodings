@@ -14,10 +14,10 @@ class Connection:
         else:
             return mock.mock_open()
 
-@mock.patch("singer_encodings.csv.get_row_iterators")
+@mock.patch("singer_encodings.json_schema.get_row_iterators")
 class TestSampleFile(unittest.TestCase):
     def test_positive(self, mocked_csv_row_iterator):
-        mocked_csv_row_iterator.return_value = [_csv.DictReader(io.StringIO("header\nvalue"))]
+        mocked_csv_row_iterator.return_value = [['/root_dir/file.csv.gz', _csv.DictReader(io.StringIO("header\nvalue"))]]
         conn = Connection()
         empty_file, samples = json_schema.sample_file(conn, {"table_name": "data", "key_properties": ["id"], "delimiter": ","}, {"filepath": "/root_dir/file.csv.gz", "last_modified": "2020-01-01"}, 1, 1000)
         # check if "csv.get_row_iterators" is called if it is called then error has not occurred

@@ -159,7 +159,7 @@ class TestReturnNoneForEmptyCSV(unittest.TestCase):
     @mock.patch("singer_encodings.csv_helper.LOGGER.warn")
     def test_get_row_iterator_return_none_for_empty_csv(self, mocked_logger_warn):
         row_iterator = csv.get_row_iterator([], None, None, True)
-        self.assertEqual(row_iterator,None)
+        self.assertEqual(row_iterator,[])
 
 class TestFieldnamesEmptyForEmptyFile(unittest.TestCase):
 

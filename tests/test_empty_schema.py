@@ -22,4 +22,4 @@ class TestEmptySchema(unittest.TestCase):
         conn = Connection()
         schema = json_schema.get_schema_for_table(conn, {"table_name":"data", "search_prefix":"/root_dir", "search_pattern":"test.*.csv"})
         # for empty samples verify for schema is empty
-        self.assertEquals({}, schema)
+        self.assertEquals({'properties': {}, 'type': 'object'}, schema)
