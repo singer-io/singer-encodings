@@ -10,6 +10,18 @@ SKIP_FILES_COUNT = 0
 
 LOGGER = singer.get_logger()
 
+def is_file_extension_present(file_name):
+    """Function to return boolean value if a file extension is present for the file or not"""
+
+    # Get the last file name
+    file_name = file_name.split('/').pop()
+    # Get the file's extension from the file name
+    extension = file_name.split('.').pop().lower()
+
+    if not extension or file_name.lower() == extension:
+        return False
+    return True
+
 def maximize_csv_field_width():
     """Set the max filed size as per the system's maxsize"""
 
@@ -39,27 +51,38 @@ def get_row_iterators(iterable, options={}, infer_compression=False, headers_in_
             file_name += '/' + item.name
             if extension == 'gz':
                 options_copy = dict(options)
-                options_copy['file_name'] = options.get('file_name') + '/' + item.name
+                options_copy['file_name'] = file_name
                 yield from get_row_iterators(item, options_copy, infer_compression, headers_in_catalog, with_duplicate_headers)
                 continue
         # Get the extension of the gzipped file ie. file.csv.gz -> csv
         elif extension == 'gz':
             # Get file name
             gzip_file_name = item[1]
+
+            # If the GZIP file's name is not present, then skip the file
+            if not gzip_file_name:
+                SKIP_FILES_COUNT += 1
+                yield (file_name, [])
+                continue
+
             # Set iterator 'item'
             item = item[0]
             # Update file name
-            file_name += '/' + gzip_file_name if gzip_file_name else ''
+            file_name += '/' + gzip_file_name
             # Get file extension
-            extension = gzip_file_name.split('.')[-1].lower() if gzip_file_name else gzip_file_name
+            extension = gzip_file_name.split('.')[-1].lower()
 
+        # SKip the file if the file is without extension
+        if not is_file_extension_present(file_name):
+            SKIP_FILES_COUNT+= 1
+            LOGGER.warning('File "%s" without extension will not be sampled.', file_name)
+            yield (file_name, [])
         # For GZ files, if the file is gzipped with --no-name, then
         # the 'extension' will be 'None'. Hence, send an empty list
-        if not extension or (extension in ['gz', 'zip']):
+        elif extension in ['gz', 'zip']:
             SKIP_FILES_COUNT += 1
             # Log warning for nested compression
-            if extension in ['gz', 'zip']:
-                LOGGER.warning('Skipping "%s" file as it contains nested compression.', options.get('file_name'))
+            LOGGER.warning('Skipping "%s" file as it contains nested compression.', file_name)
             yield (file_name, [])
         # If the extension is JSONL then use 'get_JSONL_iterators'
         elif extension == 'jsonl':
