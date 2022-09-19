@@ -72,15 +72,16 @@ def sample_file(conn, table_spec, f, sample_rate, max_records):
     except OSError:
         return (False, samples)
 
+    file_name = f['filepath']
     # Add file_name to opts and flag infer_compression to support gzipped files
     opts = {'key_properties': table_spec['key_properties'],
             'delimiter': table_spec.get('delimiter', ','),
-            'file_name': f['filepath'],
+            'file_name': file_name,
             'date_overrides': table_spec.get('date_overrides', '')}
 
     readers = get_row_iterators(file_handle, options=opts, infer_compression=True, with_duplicate_headers=True)
 
-    for _, reader in readers:
+    for file_name, reader in readers:
         current_row = 0
         for row in reader:
             # Skipping the empty line
@@ -98,7 +99,7 @@ def sample_file(conn, table_spec, f, sample_rate, max_records):
             if len(samples) >= max_records:
                 break
 
-    LOGGER.info("Sampled %s rows from %s", len(samples), f['filepath'])
+    LOGGER.info("Sampled %s rows from %s", len(samples), file_name)
     # Empty sample to show field selection, if needed
     empty_file = False
     if len(samples) == 0:

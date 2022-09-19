@@ -57,7 +57,9 @@ def get_row_iterators(iterable, options={}, infer_compression=False, headers_in_
         # the 'extension' will be 'None'. Hence, send an empty list
         if not extension or (extension in ['gz', 'zip']):
             SKIP_FILES_COUNT += 1
-            LOGGER.warning('Skipping "%s" file as it contains nested compression.', options.get('file_name'))
+            # Log warning for nested compression
+            if extension in ['gz', 'zip']:
+                LOGGER.warning('Skipping "%s" file as it contains nested compression.', options.get('file_name'))
             yield (file_name, [])
         # If the extension is JSONL then use 'get_JSONL_iterators'
         elif extension == 'jsonl':
