@@ -14,9 +14,9 @@ def is_file_extension_present(file_name):
     """Function to return boolean value if a file extension is present for the file or not"""
 
     # Get the last file name
-    file_name = file_name.split('/').pop()
+    file_name = file_name.split('/')[-1]
     # Get the file's extension from the file name
-    extension = file_name.split('.').pop().lower()
+    extension = file_name.split('.')[-1].lower()
 
     if not extension or file_name.lower() == extension:
         return False
