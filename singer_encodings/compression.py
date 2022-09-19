@@ -12,6 +12,7 @@ def infer(iterable, file_name):
         raise Exception("Need file name")
 
     if file_name.endswith('.tar.gz'):
+        LOGGER.warning('Skipping "%s" file as .tar.gz extension is not supported', file_name)
         yield from []
     elif file_name.endswith('.gz'):
         file_bytes = iterable.read()

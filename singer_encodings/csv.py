@@ -21,8 +21,10 @@ def maximize_csv_field_width():
         LOGGER.info("Changed the CSV field size limit from %s to %s", current_field_size_limit, field_size_limit)
 
 def get_row_iterators(iterable, options={}, infer_compression=False, headers_in_catalog=None, with_duplicate_headers=False):
-    """Accepts an interable, options and a flag to infer compression and yields
-    csv.DictReader objects which can be used to yield CSV rows."""
+    """
+    Accepts an interable, options and a flag to infer compression and
+    yields csv.DictReader objects which can be used to yield CSV rows.
+    """
     global SKIP_FILES_COUNT
     if infer_compression:
         compressed_iterables = compression.infer(iterable, options.get('file_name'))
@@ -67,8 +69,9 @@ def get_row_iterators(iterable, options={}, infer_compression=False, headers_in_
             yield (file_name, get_row_iterator(item, options=options, headers_in_catalog=headers_in_catalog, with_duplicate_headers=with_duplicate_headers))
 
 def get_row_iterator(iterable, options=None, headers_in_catalog = None, with_duplicate_headers = False):
-    """Accepts an interable, options and returns a csv.DictReader or csv.Reader object
-    which can be used to yield CSV rows.
+    """
+    Accepts an interable, options and returns a csv.DictReader or csv.Reader object which can be used to yield CSV rows.
+
     When with_duplicate_headers == true, it will return csv.Reader object
     When with_duplicate_headers == false, it will return csv.DictReader object (default)
     """
@@ -98,12 +101,12 @@ def get_row_iterator(iterable, options=None, headers_in_catalog = None, with_dup
     if options.get('key_properties'):
         key_properties = set(options['key_properties'])
         if not key_properties.issubset(headers):
-            raise Exception('CSV file missing required headers: {}'
-                            .format(key_properties - headers))
+            raise Exception('CSV file "{}" missing required headers: {}'
+                            .format(options.get('file_name'), key_properties - headers))
 
     if options.get('date_overrides'):
         date_overrides = set(options['date_overrides'])
         if not date_overrides.issubset(headers):
-            raise Exception('CSV file missing date_overrides headers: {}'
-                            .format(date_overrides - headers))
+            raise Exception('CSV file "{}" missing date_overrides headers: {}'
+                            .format(options.get('file_name'), date_overrides - headers))
     return reader

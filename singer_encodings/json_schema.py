@@ -6,10 +6,10 @@ from singer_encodings.csv import SDC_EXTRA_COLUMN, get_row_iterators, SKIP_FILES
 SDC_SOURCE_FILE_COLUMN = "_sdc_source_file"
 SDC_SOURCE_LINENO_COLUMN = "_sdc_source_lineno"
 
-# TODO: Add additional logging
 LOGGER = singer.get_logger()
 
 def get_sdc_columns():
+    """Function to return 'SDC' columns for the schema"""
     return {
         SDC_SOURCE_FILE_COLUMN: {'type': 'string'},
         SDC_SOURCE_LINENO_COLUMN: {'type': 'integer'},
@@ -24,26 +24,27 @@ def get_sdc_columns():
         }
     }
 
-# TODO: conn needs get_files and get_file_handle functions
+# NOTE: 'conn' needs 'get_files' and 'get_file_handle' functions
 def get_schema_for_table(conn, table_spec, sample_rate=1):
-    files = conn.get_files(table_spec['search_prefix'], table_spec['search_pattern'])
+    """Function to generate schema for the provided data files"""
+    files = conn.get_files(table_spec)
 
     if not files:
         return {}
 
     samples = sample_files(conn, table_spec, files, sample_rate=sample_rate)
 
-    schema = generate_schema(samples, table_spec)
-
     if SKIP_FILES_COUNT:
         LOGGER.warning("%s files got skipped during the last sampling.", SKIP_FILES_COUNT)
 
-    # return empty if there is no schema generated
-    if not schema:
+    # Return empty if there is no schema generated
+    if not samples:
         return {
             'type': 'object',
             'properties': {},
         }
+
+    schema = generate_schema(samples, table_spec)
 
     data_schema = {
         **schema,
@@ -56,8 +57,7 @@ def get_schema_for_table(conn, table_spec, sample_rate=1):
     }
 
 def sample_file(conn, table_spec, f, sample_rate, max_records):
-    table_name = table_spec['table_name']
-    plurality = "s" if sample_rate != 1 else ""
+    """Function to sample a file and return list of records for that file"""
 
     global SKIP_FILES_COUNT
 
@@ -75,13 +75,19 @@ def sample_file(conn, table_spec, f, sample_rate, max_records):
     # Add file_name to opts and flag infer_compression to support gzipped files
     opts = {'key_properties': table_spec['key_properties'],
             'delimiter': table_spec.get('delimiter', ','),
-            'file_name': f['filepath']}
+            'file_name': f['filepath'],
+            'date_overrides': table_spec.get('date_overrides', '')}
 
     readers = get_row_iterators(file_handle, options=opts, infer_compression=True, with_duplicate_headers=True)
 
     for _, reader in readers:
         current_row = 0
         for row in reader:
+            # Skipping the empty line
+            if len(row) == 0:
+                current_row += 1
+                continue
+
             if (current_row % sample_rate) == 0:
                 if row.get(SDC_EXTRA_COLUMN):
                     row.pop(SDC_EXTRA_COLUMN)
@@ -102,8 +108,8 @@ def sample_file(conn, table_spec, f, sample_rate, max_records):
     return (empty_file, samples)
 
 # pylint: disable=too-many-arguments
-def sample_files(conn, table_spec, files,
-                 sample_rate=1, max_records=1000, max_files=5):
+def sample_files(conn, table_spec, files, sample_rate=1, max_records=1000, max_files=5):
+    """Function to sample matched files as per the sampling rate and the max records to sample"""
     LOGGER.info("Sampling files (max files: %s)", max_files)
     to_return = []
     empty_samples = []
@@ -130,15 +136,13 @@ def sample_files(conn, table_spec, files,
         if files_so_far >= max_files:
             break
 
-    if not any(to_return):
+    if len(to_return) == 0:
         return empty_samples
 
     return to_return
 
 def infer(datum):
-    """
-    Returns the inferred data type
-    """
+    """Returns the inferred data type"""
     if datum is None or datum == '':
         return None
 
@@ -158,6 +162,7 @@ def infer(datum):
     return 'string'
 
 def count_sample(sample, counts, table_spec):
+    """Function to count the samples based on the dataype"""
     for key, value in sample.items():
         if key not in counts:
             counts[key] = {}
