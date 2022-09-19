@@ -3,7 +3,7 @@ from unittest import mock
 from singer_encodings import json_schema
 
 class Connection:
-    def get_files(self, search_prefix, search_pattern):
+    def get_files(self, table_spec):
         return [{'last_modified': "2020-01-01", 'filepath': 'root_dir/file1.csv'}, {'last_modified': "2020-01-02", 'filepath': 'root_dir/file2.csv'}]
 
 @mock.patch("singer_encodings.json_schema.sample_files")

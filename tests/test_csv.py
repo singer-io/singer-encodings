@@ -32,9 +32,9 @@ class TestOptionsWithDuplicateHeaders(unittest.TestCase):
         self.assertEqual(rows[0]['columnA'], '1')
 
         try:
-            row_iterator = csv.get_row_iterator(self.csv_data, options={'key_properties': ['fizz']})
+            row_iterator = csv.get_row_iterator(self.csv_data, options={'key_properties': ['fizz'], 'file_name': '/root/test.csv'})
         except Exception as ex:
-            expected_message = "CSV file missing required headers: {'fizz'}"
+            expected_message = 'CSV file "/root/test.csv" missing required headers: {\'fizz\'}'
             self.assertEquals(expected_message, str(ex))
 
         row_iterator = csv.get_row_iterator(self.csv_data, options={'date_overrides': ['columnA']}, headers_in_catalog=None, with_duplicate_headers=True)
@@ -58,9 +58,9 @@ class TestOptions(unittest.TestCase):
         self.assertEqual(rows[0]['columnA'], '1')
 
         try:
-            row_iterator = csv.get_row_iterator(self.csv_data, options={'key_properties': ['fizz']})
+            row_iterator = csv.get_row_iterator(self.csv_data, options={'key_properties': ['fizz'], 'file_name': '/root/test.csv'})
         except Exception as ex:
-            expected_message = "CSV file missing required headers: {'fizz'}"
+            expected_message = 'CSV file "/root/test.csv" missing required headers: {\'fizz\'}'
             self.assertEquals(expected_message, str(ex))
 
         row_iterator = csv.get_row_iterator(self.csv_data, options={'date_overrides': ['columnA']})
