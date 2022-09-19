@@ -59,7 +59,8 @@ def get_row_iterators(iterable, options={}, infer_compression=False, headers_in_
             # Get file name
             gzip_file_name = item[1]
 
-            # If the GZIP file's name is not present, then skip the file
+            # For GZ files, if the file is gzipped with --no-name, then
+            # the 'extension' will be 'None'. Hence, send an empty list
             if not gzip_file_name:
                 SKIP_FILES_COUNT += 1
                 yield (file_name, [])
@@ -77,8 +78,7 @@ def get_row_iterators(iterable, options={}, infer_compression=False, headers_in_
             SKIP_FILES_COUNT+= 1
             LOGGER.warning('File "%s" without extension will not be sampled.', file_name)
             yield (file_name, [])
-        # For GZ files, if the file is gzipped with --no-name, then
-        # the 'extension' will be 'None'. Hence, send an empty list
+        # Skip files with nested compression
         elif extension in ['gz', 'zip']:
             SKIP_FILES_COUNT += 1
             # Log warning for nested compression
