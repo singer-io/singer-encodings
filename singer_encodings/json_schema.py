@@ -37,7 +37,7 @@ def get_schema_for_table(conn, table_spec, sample_rate=1):
     if SKIP_FILES_COUNT:
         LOGGER.warning("%s files got skipped during the last sampling.", SKIP_FILES_COUNT)
 
-    # Return empty if there is no schema generated
+    # Return empty "properties" if there is no schema generated
     if not samples:
         return {
             'type': 'object',
