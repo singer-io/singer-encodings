@@ -4,13 +4,18 @@ LOGGER = singer.get_logger()
 def generate_schema(samples, table_spec):
     """Function to generate the schema as the records"""
     counts = {}
+
+    # Loop over the samples and create the count of the datatypes
+    # {'id': {'integer': 45}, 'name': {'string' : 45}}
     for sample in samples:
-        # {'id': {'integer': 45}, 'name': {'string' : 45}}
         counts = count_sample(sample, counts, table_spec)
 
+    # Loop over the counts and generate the schema based on the datatype
     for key, value in counts.items():
+        # Get the datatype
         datatype = pick_datatype(value)
 
+        # Handle 'list' datatype schema separately
         if 'list.' in datatype:
             child_datatype = datatype.rsplit('.', maxsplit=1)[-1]
             counts[key] = {
@@ -49,6 +54,7 @@ def datatype_schema(datatype):
         }
     else:
         types = ['null', datatype]
+        # Add 'string' as fallback condition
         if datatype != 'string':
             types.append('string')
         schema = {
@@ -63,6 +69,7 @@ def pick_datatype(counts):
     list_of_datatypes = ['list.date-time', 'list.dict', 'list.number',
                          'list.integer', 'list.string', 'list', 'date-time', 'dict']
 
+    # Look if the datatype is 'list' by looping over the 'list_of_datatypes'
     for data_types in list_of_datatypes:
         if counts.get(data_types, 0) > 0:
             return data_types
@@ -89,8 +96,10 @@ def count_sample(sample, counts, table_spec):
             counts[key] = {}
 
         date_overrides = table_spec.get('date_overrides', [])
+        # Get the datatype
         datatype = infer(key, value, date_overrides)
 
+        # Increment the count of the datatype
         if datatype is not None:
             counts[key][datatype] = counts[key].get(datatype, 0) + 1
 
@@ -103,16 +112,20 @@ def infer(key, datum, date_overrides, second_call=False):
 
     try:
         if isinstance(datum, list):
+            # Default the datatype as list of strings
             data_type = 'string'
             if second_call: # Use string for nested list
                 LOGGER.warning(
                     'Unsupported type for "%s", List inside list is not supported hence will be treated as a string', key)
-            elif not datum: # Empty list
+            # Empty list
+            elif not datum:
                 data_type = 'list'
+            # Get the datatype of list elements
             else:
                 data_type = 'list.' + infer(key, datum[0], date_overrides, second_call=True)
             return data_type
 
+        # Send 'date-time' for date_overrides fields
         if key in date_overrides:
             return 'date-time'
 

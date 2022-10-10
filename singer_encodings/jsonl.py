@@ -23,12 +23,14 @@ def check_key_properties_and_date_overrides_for_jsonl_file(options, jsonl_sample
     for record in jsonl_sample_records:
         keys = record.keys()
 
+        # Verify if the 'key_properties' field is passed in the data
         if options.get('key_properties'):
             key_properties = set(options['key_properties'])
             if not key_properties.issubset(keys):
                 raise Exception('JSONL file "{}" missing required headers: {}'
                                 .format(options.get('file_name'), key_properties - keys))
 
+        # Verify if the 'date_overrides' field is passed in the data
         if options.get('date_overrides'):
             date_overrides = set(options['date_overrides'])
             if not date_overrides.issubset(keys):

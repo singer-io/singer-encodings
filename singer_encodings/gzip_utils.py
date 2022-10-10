@@ -7,11 +7,14 @@ def get_file_name_from_gzfile(fileobj=None):
     _gz = gzip.GzipFile(fileobj=fileobj)
     _fp = _gz.fileobj
 
-    # the magic 2 bytes: if 0x1f 0x8b (037 213 in octal)
+    # The magic 2 bytes: if 0x1f 0x8b (037 213 in octal)
     magic = _fp.read(2)
+
+    # Return if the file is empty
     if magic == b'':
         return None
 
+    # If the first 2 bytes are '\037\213' then the file is not a GZIPPED file
     if magic != b'\037\213':
         raise OSError('Not a gzipped file (%r)' % magic)
 
@@ -45,13 +48,12 @@ def get_file_name_from_gzfile(fileobj=None):
     return None
 
 def _read_exact(fp, n):
-    """This is the gzip.GzipFile._read_exact() method from the Python library.
-    """
+    """This is the gzip.GzipFile._read_exact() method from the Python library."""
     data = fp.read(n)
     while len(data) < n:
-        b = fp.read(n - len(data))
-        if not b:
+        data_bytes = fp.read(n - len(data))
+        if not data_bytes:
             raise EOFError("Compressed file ended before the "
                            "end-of-stream marker was reached")
-        data += b
+        data += data_bytes
     return data
