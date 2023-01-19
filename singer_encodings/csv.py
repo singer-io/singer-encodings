@@ -1,21 +1,102 @@
 import codecs
 import csv
+import sys
 from singer_encodings.csv_helper import (CSVHelper, SDC_EXTRA_COLUMN)
-
+import singer
+from singer_encodings.jsonl import get_JSONL_iterators
 from . import compression
 
-def get_row_iterators(iterable, options={}, infer_compression=False):
-    """Accepts an interable, options and a flag to infer compression and yields
-    csv.DictReader objects which can be used to yield CSV rows."""
+SKIP_FILES_COUNT = 0
+
+LOGGER = singer.get_logger()
+
+def is_file_extension_present(file_name):
+    """Function to return boolean value if a file extension is present for the file or not"""
+
+    # Get the last file name
+    file_name = file_name.split('/')[-1]
+    # Get the file's extension from the file name
+    extension = file_name.split('.')[-1].lower()
+
+    if not extension or file_name.lower() == extension:
+        return False
+    return True
+
+def maximize_csv_field_width():
+    """Set the max filed size as per the system's maxsize"""
+
+    current_field_size_limit = csv.field_size_limit()
+    field_size_limit = sys.maxsize
+
+    if current_field_size_limit != field_size_limit:
+        csv.field_size_limit(field_size_limit)
+        LOGGER.info("Changed the CSV field size limit from %s to %s", current_field_size_limit, field_size_limit)
+
+def get_row_iterators(iterable, options={}, infer_compression=False, headers_in_catalog=None, with_duplicate_headers=False):
+    """
+    Accepts an interable, options and a flag to infer compression and
+    yields csv.DictReader objects which can be used to yield CSV rows.
+    """
+    global SKIP_FILES_COUNT
     if infer_compression:
         compressed_iterables = compression.infer(iterable, options.get('file_name'))
 
     for item in compressed_iterables:
-        yield get_row_iterator(item, options=options)
+        file_name = options.get('file_name')
+        file_name_splitted = file_name.split('.')
+        extension = file_name_splitted[-1].lower()
+        # Get the extension of the zipped file
+        if extension == 'zip':
+            extension = item.name.split('.')[-1].lower()
+            file_name += '/' + item.name
+            if extension == 'gz':
+                options_copy = dict(options)
+                options_copy['file_name'] = file_name
+                yield from get_row_iterators(item, options_copy, infer_compression, headers_in_catalog, with_duplicate_headers)
+                continue
+        # Get the extension of the gzipped file ie. file.csv.gz -> csv
+        elif extension == 'gz':
+            # Get file name
+            gzip_file_name = item[1]
+
+            # For GZ files, if the file is gzipped with --no-name, then
+            # the 'extension' will be 'None'. Hence, send an empty list
+            if not gzip_file_name:
+                SKIP_FILES_COUNT += 1
+                yield (file_name, [])
+                continue
+
+            # Set iterator 'item'
+            item = item[0]
+            # Update file name
+            file_name += '/' + gzip_file_name
+            # Get file extension
+            extension = gzip_file_name.split('.')[-1].lower()
+
+        # SKip the file if the file is without extension
+        if not is_file_extension_present(file_name):
+            SKIP_FILES_COUNT+= 1
+            LOGGER.warning('File "%s" without extension will not be sampled.', file_name)
+            yield (file_name, [])
+        # Skip files with nested compression
+        elif extension in ['gz', 'zip']:
+            SKIP_FILES_COUNT += 1
+            # Log warning for nested compression
+            LOGGER.warning('Skipping "%s" file as it contains nested compression.', file_name)
+            yield (file_name, [])
+        # If the extension is JSONL then use 'get_JSONL_iterators'
+        elif extension == 'jsonl':
+            yield (file_name, get_JSONL_iterators(item, options))
+        # Assuming the extension is 'csv' of 'txt', then use singer_encoding's 'get_row_iterator'
+        else:
+            # Maximize the CSV field width
+            maximize_csv_field_width()
+            yield (file_name, get_row_iterator(item, options=options, headers_in_catalog=headers_in_catalog, with_duplicate_headers=with_duplicate_headers))
 
 def get_row_iterator(iterable, options=None, headers_in_catalog = None, with_duplicate_headers = False):
-    """Accepts an interable, options and returns a csv.DictReader or csv.Reader object
-    which can be used to yield CSV rows.
+    """
+    Accepts an interable, options and returns a csv.DictReader or csv.Reader object which can be used to yield CSV rows.
+
     When with_duplicate_headers == true, it will return csv.Reader object
     When with_duplicate_headers == false, it will return csv.DictReader object (default)
     """
@@ -45,12 +126,12 @@ def get_row_iterator(iterable, options=None, headers_in_catalog = None, with_dup
     if options.get('key_properties'):
         key_properties = set(options['key_properties'])
         if not key_properties.issubset(headers):
-            raise Exception('CSV file missing required headers: {}'
-                            .format(key_properties - headers))
+            raise Exception('CSV file "{}" missing required headers: {}'
+                            .format(options.get('file_name'), key_properties - headers))
 
     if options.get('date_overrides'):
         date_overrides = set(options['date_overrides'])
         if not date_overrides.issubset(headers):
-            raise Exception('CSV file missing date_overrides headers: {}'
-                            .format(date_overrides - headers))
+            raise Exception('CSV file "{}" missing date_overrides headers: {}'
+                            .format(options.get('file_name'), date_overrides - headers))
     return reader
