@@ -8,13 +8,13 @@ SDC_SOURCE_LINENO_COLUMN = "_sdc_source_lineno"
 # TODO: Add additional logging
 
 # TODO: conn needs get_files and get_file_handle functions
-def get_schema_for_table(conn, table_spec):
+def get_schema_for_table(conn, table_spec, encoding_format = "utf-8"):
     files = conn.get_files(table_spec['search_prefix'], table_spec['search_pattern'])
 
     if not files:
         return {}
 
-    samples = sample_files(conn, table_spec, files)
+    samples = sample_files(conn, table_spec, files, encoding_format=encoding_format)
 
     schema = generate_schema(samples, table_spec)
 
@@ -34,7 +34,7 @@ def get_schema_for_table(conn, table_spec):
         'properties': data_schema,
     }
 
-def sample_file(conn, table_spec, f, sample_rate, max_records):
+def sample_file(conn, table_spec, f, sample_rate, max_records, encoding_format = "utf-8"):
     table_name = table_spec['table_name']
     plurality = "s" if sample_rate != 1 else ""
 
@@ -49,7 +49,7 @@ def sample_file(conn, table_spec, f, sample_rate, max_records):
             'delimiter': table_spec['delimiter'],
             'file_name': f['filepath']}
 
-    readers = csv.get_row_iterators(file_handle, options=opts, infer_compression=True)
+    readers = csv.get_row_iterators(file_handle, options=opts, infer_compression=True, encoding_format=encoding_format)
 
     for reader in readers:
         current_row = 0
@@ -76,7 +76,7 @@ def sample_file(conn, table_spec, f, sample_rate, max_records):
 
 # pylint: disable=too-many-arguments
 def sample_files(conn, table_spec, files,
-                 sample_rate=1, max_records=1000, max_files=5):
+                 sample_rate=1, max_records=1000, max_files=5, encoding_format = "utf-8"):
     to_return = []
     empty_samples = []
 
@@ -86,7 +86,7 @@ def sample_files(conn, table_spec, files,
 
     for f in sorted_files:
         empty_file, samples = sample_file(conn, table_spec, f,
-                                          sample_rate, max_records)
+                                          sample_rate, max_records, encoding_format)
 
         if empty_file:
             empty_samples += samples
