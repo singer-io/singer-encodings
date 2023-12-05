@@ -8,7 +8,7 @@ SDC_SOURCE_LINENO_COLUMN = "_sdc_source_lineno"
 # TODO: Add additional logging
 
 # TODO: conn needs get_files and get_file_handle functions
-def get_schema_for_table(conn, table_spec, encoding_format = "utf-8"):
+def get_schema_for_table(conn, table_spec, encoding_format="utf-8"):
     files = conn.get_files(table_spec['search_prefix'], table_spec['search_pattern'])
 
     if not files:
@@ -34,7 +34,7 @@ def get_schema_for_table(conn, table_spec, encoding_format = "utf-8"):
         'properties': data_schema,
     }
 
-def sample_file(conn, table_spec, f, sample_rate, max_records, encoding_format = "utf-8"):
+def sample_file(conn, table_spec, f, sample_rate, max_records, encoding_format="utf-8"):
     table_name = table_spec['table_name']
     plurality = "s" if sample_rate != 1 else ""
 
@@ -76,7 +76,7 @@ def sample_file(conn, table_spec, f, sample_rate, max_records, encoding_format =
 
 # pylint: disable=too-many-arguments
 def sample_files(conn, table_spec, files,
-                 sample_rate=1, max_records=1000, max_files=5, encoding_format = "utf-8"):
+                 sample_rate=1, max_records=1000, max_files=5, encoding_format="utf-8"):
     to_return = []
     empty_samples = []
 
