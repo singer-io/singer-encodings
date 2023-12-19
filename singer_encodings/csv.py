@@ -4,16 +4,16 @@ from singer_encodings.csv_helper import (CSVHelper, SDC_EXTRA_COLUMN)
 
 from . import compression
 
-def get_row_iterators(iterable, options={}, infer_compression=False):
+def get_row_iterators(iterable, options={}, infer_compression=False, encoding_format="utf-8-sig"):
     """Accepts an interable, options and a flag to infer compression and yields
     csv.DictReader objects which can be used to yield CSV rows."""
     if infer_compression:
         compressed_iterables = compression.infer(iterable, options.get('file_name'))
 
     for item in compressed_iterables:
-        yield get_row_iterator(item, options=options)
+        yield get_row_iterator(item, options=options, encoding_format=encoding_format)
 
-def get_row_iterator(iterable, options=None, headers_in_catalog = None, with_duplicate_headers = False):
+def get_row_iterator(iterable, options=None, headers_in_catalog = None, with_duplicate_headers = False, encoding_format="utf-8-sig"):
     """Accepts an interable, options and returns a csv.DictReader or csv.Reader object
     which can be used to yield CSV rows.
     When with_duplicate_headers == true, it will return csv.Reader object
@@ -23,7 +23,7 @@ def get_row_iterator(iterable, options=None, headers_in_catalog = None, with_dup
     options = options or {}
     reader = []
     headers = set()
-    file_stream = codecs.iterdecode(iterable, encoding='utf-8-sig')
+    file_stream = codecs.iterdecode(iterable, encoding=encoding_format)
     delimiter = options.get('delimiter', ',')
 
     # Return the CSV key-values along with considering the duplicate headers, if any, in the CSV file
@@ -35,7 +35,10 @@ def get_row_iterator(iterable, options=None, headers_in_catalog = None, with_dup
         headers = set(csv_helper.unique_headers)
     else :
         # Replace any NULL bytes in the line given to the DictReader
-        reader = csv.DictReader((line.replace('\0', '') for line in file_stream), fieldnames=None, restkey=SDC_EXTRA_COLUMN, delimiter=delimiter)
+        reader = csv.DictReader((line.replace('\0', '').lstrip('\r\n') for line in file_stream), 
+                                fieldnames=None, 
+                                restkey=SDC_EXTRA_COLUMN, 
+                                delimiter=delimiter)
         try:
             headers = set(reader.fieldnames)
         except TypeError:
