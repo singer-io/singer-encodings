@@ -145,6 +145,6 @@ class CSVHelper:
         if len(self.dup_headers_idxs) > 0:
             # Get the unique names of duplicate headers
             dup_headers = set(map(self.all_csv_headers.__getitem__, self.dup_headers_idxs))
-            LOGGER.warn("Duplicate Header(s) %s found in the csv and its value will be stored in the \"_sdc_extra\" field.",dup_headers)
+            LOGGER.warn("\"%s\" header(s) are either not found in catalog or duplicate(s) in the csv. Hence its value will be stored in the \"_sdc_extra\" field.",dup_headers)
 
         return self.__generate_dict_reader(reader)
