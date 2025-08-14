@@ -1,4 +1,5 @@
 import gzip
+from io import BytesIO
 import zipfile
 
 def infer(iterable, file_name):
@@ -12,7 +13,8 @@ def infer(iterable, file_name):
     elif file_name.endswith('.gz'):
         yield gzip.GzipFile(fileobj=iterable)
     elif file_name.endswith('.zip'):
-        with zipfile.ZipFile(iterable) as zip:
+        zip_bytes = iterable.read()
+        with zipfile.ZipFile(BytesIO(zip_bytes)) as zip:
             for name in zip.namelist():
                 yield zip.open(name)
     else:
