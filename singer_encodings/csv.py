@@ -4,11 +4,11 @@ from singer_encodings.csv_helper import (CSVHelper, SDC_EXTRA_COLUMN)
 
 from . import compression
 
-def get_row_iterators(iterable, options={}, infer_compression=False, encoding_format="utf-8-sig"):
+def get_row_iterators(iterable, options={}, infer_compression=False, encoding_format="utf-8-sig", conn = None):
     """Accepts an interable, options and a flag to infer compression and yields
     csv.DictReader objects which can be used to yield CSV rows."""
     if infer_compression:
-        compressed_iterables = compression.infer(iterable, options.get('file_name'))
+        compressed_iterables = compression.infer(iterable, options.get('file_name'), conn=conn)
 
     for item in compressed_iterables:
         yield get_row_iterator(item, options=options, encoding_format=encoding_format)
