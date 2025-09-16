@@ -22,30 +22,30 @@ class TestSampleFile(unittest.TestCase):
         empty_file, samples = json_schema.sample_file(conn, {"table_name": "data", "key_properties": ["id"], "delimiter": ","}, {"filepath": "/root_dir/file.csv.gz", "last_modified": "2020-01-01"}, 1, 1000)
         # check if "csv.get_row_iterators" is called if it is called then error has not occurred
         # if it is not called then error has occured and function returned from the except block
-        self.assertEquals(1, mocked_csv_row_iterator.call_count)
+        self.assertEqual(1, mocked_csv_row_iterator.call_count)
         # test if file is empty
-        self.assertEquals(False, empty_file)
+        self.assertEqual(False, empty_file)
         # test if samples is not an empty list
-        self.assertNotEquals([], samples)
+        self.assertNotEqual([], samples)
 
     def test_negative_OSError(self, mocked_csv_row_iterator):
         conn = Connection()
         empty_file, samples = json_schema.sample_file(conn, {"table_name": "data", "key_properties": ["id"], "delimiter": ","}, {"filepath": "/root_dir/file.csv.gz", "last_modified": "2020-01-01", "raise_error": True}, 1, 1000)
         # check if "csv.get_row_iterators" is called if it is called then error has not occurred
         # if it is not called then error has occured and function returned from the except block
-        self.assertEquals(0, mocked_csv_row_iterator.call_count)
+        self.assertEqual(0, mocked_csv_row_iterator.call_count)
         # test if file is empty
-        self.assertEquals(False, empty_file)
+        self.assertEqual(False, empty_file)
         # test if samples is not an empty list
-        self.assertEquals([], samples)
+        self.assertEqual([], samples)
 
     def test_negative_PermisisonError(self, mocked_csv_row_iterator):
         conn = Connection()
         empty_file, samples = json_schema.sample_file(conn, {"table_name": "data", "key_properties": ["id"], "delimiter": ","}, {"filepath": "/root_dir/file.csv.gz", "last_modified": "2020-01-01", "raise_permission_error": True}, 1, 1000)
         # check if "csv.get_row_iterators" is called if it is called then error has not occurred
         # if it is not called then error has occured and function returned from the except block
-        self.assertEquals(0, mocked_csv_row_iterator.call_count)
+        self.assertEqual(0, mocked_csv_row_iterator.call_count)
         # test if file is empty
-        self.assertEquals(False, empty_file)
+        self.assertEqual(False, empty_file)
         # test if samples is not an empty list
-        self.assertEquals([], samples)
+        self.assertEqual([], samples)
