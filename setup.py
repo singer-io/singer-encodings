@@ -15,7 +15,7 @@ setup(name="singer-encodings",
           "pyarrow==21.0.0"
       ],
       extras_require={
-          "dev": ["nose"]
+          "dev": ["pytest"]
       },
       packages=find_packages(),
 )
