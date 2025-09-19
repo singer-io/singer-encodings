@@ -35,7 +35,7 @@ class TestOptionsWithDuplicateHeaders(unittest.TestCase):
             row_iterator = csv.get_row_iterator(self.csv_data, options={'key_properties': ['fizz']})
         except Exception as ex:
             expected_message = "CSV file missing required headers: {'fizz'}"
-            self.assertEquals(expected_message, str(ex))
+            self.assertEqual(expected_message, str(ex))
 
         row_iterator = csv.get_row_iterator(self.csv_data, options={'date_overrides': ['columnA']}, headers_in_catalog=None, with_duplicate_headers=True)
         rows = [r for r in row_iterator]
@@ -45,7 +45,7 @@ class TestOptionsWithDuplicateHeaders(unittest.TestCase):
             row_iterator = csv.get_row_iterator(self.csv_data, options={'date_overrides': ['columnA']}, headers_in_catalog=None, with_duplicate_headers=True)
         except Exception as ex:
             expected_message = "CSV file missing date_overrides headers: {'fizz'}"
-            self.assertEquals(expected_message, str(ex))
+            self.assertEqual(expected_message, str(ex))
 
 
 class TestOptions(unittest.TestCase):
@@ -61,7 +61,7 @@ class TestOptions(unittest.TestCase):
             row_iterator = csv.get_row_iterator(self.csv_data, options={'key_properties': ['fizz']})
         except Exception as ex:
             expected_message = "CSV file missing required headers: {'fizz'}"
-            self.assertEquals(expected_message, str(ex))
+            self.assertEqual(expected_message, str(ex))
 
         row_iterator = csv.get_row_iterator(self.csv_data, options={'date_overrides': ['columnA']})
         rows = [r for r in row_iterator]
@@ -71,7 +71,7 @@ class TestOptions(unittest.TestCase):
             row_iterator = csv.get_row_iterator(self.csv_data, options={'date_overrides': ['columnA']})
         except Exception as ex:
             expected_message = "CSV file missing date_overrides headers: {'fizz'}"
-            self.assertEquals(expected_message, str(ex))
+            self.assertEqual(expected_message, str(ex))
 
 class TestRestKeyWithDuplicateHeader(unittest.TestCase):
 
@@ -165,7 +165,7 @@ class TestFieldnamesEmptyForEmptyFile(unittest.TestCase):
 
     def test(self):
         row_iterator = csv.get_row_iterator([])
-        self.assertEquals(row_iterator.fieldnames, None)
+        self.assertEqual(row_iterator.fieldnames, None)
 
 class TestFieldnamesNonEmptyForEmptyFile(unittest.TestCase):
 
@@ -173,4 +173,4 @@ class TestFieldnamesNonEmptyForEmptyFile(unittest.TestCase):
 
     def test(self):
         row_iterator = csv.get_row_iterator(self.csv_data)
-        self.assertEquals(row_iterator.fieldnames, ["columnA", "columnB"])
+        self.assertEqual(row_iterator.fieldnames, ["columnA", "columnB"])
