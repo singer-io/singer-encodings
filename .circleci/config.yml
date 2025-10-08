@@ -2,21 +2,21 @@ version: 2
 jobs:
   build:
     docker:
-      - image: 218546966473.dkr.ecr.us-east-1.amazonaws.com/circle-ci:tap-tester-v4
+      - image: 218546966473.dkr.ecr.us-east-1.amazonaws.com/circle-ci:stitch-tap-tester-uv
     steps:
       - checkout
       - run:
           name: 'Setup virtualenv'
           command: |
-            virtualenv -p python3 /usr/local/share/virtualenvs/singer-encodings
+            uv venv --python 3.12 /usr/local/share/virtualenvs/singer-encodings
             source /usr/local/share/virtualenvs/singer-encodings/bin/activate
-            pip install .[dev]
+            uv pip install .[dev]
       - run:
           name: 'Unit tests'
           command: |
             source /usr/local/share/virtualenvs/singer-encodings/bin/activate
-            pip install .[dev]
-            nosetests
+            uv pip install .[dev]
+            pytest tests
 
 workflows:
   version: 2
