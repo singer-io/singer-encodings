@@ -11,7 +11,8 @@ setup(name="singer-encodings",
       url="http://singer.io",
       install_requires=[
           "singer-python",
-          "pyarrow==21.0.0"
+          "pyarrow==21.0.0",
+          "fastavro==1.12.0"
       ],
       extras_require={
           "dev": ["pytest"]
