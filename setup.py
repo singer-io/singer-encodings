@@ -4,14 +4,15 @@ from setuptools import setup, find_packages
 import subprocess
 
 setup(name="singer-encodings",
-      version='0.1.5',
+      version='0.2.0',
       description="Singer.io encodings library",
       author="Stitch",
       classifiers=['Programming Language :: Python :: 3 :: Only'],
       url="http://singer.io",
       install_requires=[
           "singer-python",
-          "pyarrow==21.0.0"
+          "pyarrow==21.0.0",
+          "fastavro==1.12.0"
       ],
       extras_require={
           "dev": ["pytest"]
