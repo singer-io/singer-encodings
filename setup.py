@@ -12,7 +12,9 @@ setup(name="singer-encodings",
       install_requires=[
           "singer-python",
           "pyarrow==21.0.0",
-          "fastavro==1.12.0"
+          "fastavro==1.12.0",
+          "et_xmlfile==2.0.0",
+          "openpyxl==3.1.5"
       ],
       extras_require={
           "dev": ["pytest"]
