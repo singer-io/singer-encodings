@@ -1,4 +1,4 @@
-from excel_helper import ExcelHelper
+from .excel_helper import ExcelHelper
 
 def get_excel_row_iterator(
     iterable,

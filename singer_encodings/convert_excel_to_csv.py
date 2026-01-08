@@ -7,8 +7,19 @@ logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger(__name__)
 
 def excel_to_csv_all_sheets(excel_file_path, output_dir=".", prefix="output"):
-    wb = load_workbook(excel_file_path, read_only=True, data_only=True)
+    """Convert all sheets in an Excel workbook to separate CSV files.
 
+    Args:
+        excel_file_path (str | os.PathLike): Path to the .xlsx file.
+        output_dir (str | os.PathLike): Directory where CSVs will be written.
+        prefix (str): Prefix for generated CSV filenames.
+
+    Returns:
+        list[str]: List of generated CSV file paths.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    wb = load_workbook(excel_file_path, read_only=True, data_only=True)
+    generated = []
     for sheet in wb.sheetnames:
         ws = wb[sheet]
         rows = list(ws.iter_rows(values_only=True))
@@ -39,10 +50,5 @@ def excel_to_csv_all_sheets(excel_file_path, output_dir=".", prefix="output"):
                 writer.writerow(row)
 
         LOGGER.info("Sheet '%s' converted to '%s'", sheet, csv_file_path)
-
-# -------------------------------
-# Example usage
-# -------------------------------
-if __name__ == "__main__":
-    excel_file = "excel_test_file.xlsx"  # Input Excel file
-    excel_to_csv_all_sheets(excel_file)
+        generated.append(csv_file_path)
+    return generated
