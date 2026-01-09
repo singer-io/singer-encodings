@@ -1,3 +1,19 @@
+"""Excel reading utilities for Singer encodings.
+
+This module provides helpers to read Excel workbooks in read-only mode and
+produce JSON-friendly row dictionaries:
+
+- Iterates all sheets (or a specific sheet) and yields `(sheet_name, row_dict)`.
+- Builds row dicts keyed by headers; duplicate headers are captured under
+    the special `_sdc_extra` field.
+- Preserves cell hyperlinks as a list of objects with the shape
+    `[{"text": "...", "url": "..."}]`.
+- Normalizes `datetime`, `date`, `time`, and common date-like strings to
+    ISO-8601 using `convert_for_json`.
+
+These conventions ensure downstream JSON serialization is stable and that
+metadata like hyperlinks is not lost.
+"""
 from openpyxl import load_workbook
 import logging
 from datetime import datetime, date, time
@@ -15,6 +31,16 @@ LOGGER = logging.getLogger(__name__)
 # ExcelHelper
 # ----------------------------
 class ExcelHelper:
+    """Helper for reading Excel sheets and producing JSON-friendly rows.
+
+    Responsibilities:
+    - Track headers and detect duplicates per sheet.
+    - Convert rows into dictionaries keyed by headers.
+    - Capture duplicate or non-catalog headers in `_sdc_extra`.
+    - Preserve hyperlinks and normalize date-like values to ISO strings.
+
+    Attributes are reset per sheet when iterating a workbook.
+    """
     def __init__(self):
         self.all_headers = []
         self.unique_headers = []
@@ -40,13 +66,67 @@ class ExcelHelper:
         """Convert datetime/date/time to JSON-serializable string"""
         if isinstance(value, (datetime, date, time)):
             return value.isoformat()
+
+        # Try to parse common date/datetime string formats to ISO
+        if isinstance(value, str):
+            s = value.strip()
+            # Datetime patterns (with time component)
+            datetime_patterns = [
+                "%Y-%m-%d %H:%M:%S",
+                "%Y-%m-%d %H:%M",
+                "%d-%b-%y %H:%M:%S",
+                "%d-%b-%y %H:%M",
+                "%d-%b-%Y %H:%M:%S",
+                "%d-%b-%Y %H:%M",
+                "%m/%d/%Y %H:%M:%S",
+                "%m/%d/%Y %H:%M",
+                "%d/%m/%Y %H:%M:%S",
+                "%d/%m/%Y %H:%M",
+            ]
+            date_patterns = [
+                "%Y-%m-%d",
+                "%d-%b-%y",   # e.g., 15-Aug-25
+                "%d-%b-%Y",
+                "%d %b %Y",
+                "%b %d, %Y",
+                "%m/%d/%Y",
+                "%d/%m/%Y",
+                "%m/%d/%y",
+                "%d/%m/%y",
+                "%d-%m-%Y",
+                "%d-%m-%y",
+                "%Y/%m/%d",
+            ]
+
+            # Try datetime patterns first
+            for fmt in datetime_patterns:
+                try:
+                    dt = datetime.strptime(s, fmt)
+                    return dt.isoformat()
+                except Exception:
+                    pass
+
+            # Then date-only patterns
+            for fmt in date_patterns:
+                try:
+                    d = datetime.strptime(s, fmt).date()
+                    return d.isoformat()
+                except Exception:
+                    pass
+
         return value
 
     def _generate_dict_reader(self, rows, skip_empty=True):
-        """Convert rows to dictionaries, handle duplicates and _sdc_extra"""
+        """Convert rows to dictionaries, handle duplicates and `_sdc_extra`.
+
+        - Rows are lists of cell values (already processed for hyperlinks).
+        - Values are recursively converted to ISO where applicable.
+        - Excess values (when row has more items than headers) are stored
+            under `_sdc_extra` with the `no_headers` key.
+        """
         for row in rows:
             row = list(row)
-            
+
             if skip_empty and all(v is None for v in row):
                 continue  # skip completely empty rows
 
@@ -90,8 +170,13 @@ class ExcelHelper:
 
 
     def get_all_sheets_iterator(self, workbook_stream, headers_in_catalog=None, sheet_name=None, skip_empty=True):
-        """
-        Read all sheets from Excel (or a specific sheet) and yield tuples (sheet_name, row_dict)
+        """Yield `(sheet_name, row_dict)` for all sheets (or a specific sheet).
+
+        - Reads cell objects to preserve hyperlinks.
+        - Skips fully empty rows when `skip_empty=True`.
+        - Duplicate headers and non-catalog fields are captured in `_sdc_extra`.
+        - Hyperlinked cells are represented as `[{"text": "...", "url": "..."}]`.
+        - Date-like values and datetimes are normalized to ISO strings.
         """
         wb = load_workbook(workbook_stream, read_only=True, data_only=True)
         sheetnames = [sheet_name] if sheet_name else wb.sheetnames
@@ -99,7 +184,8 @@ class ExcelHelper:
         for sn in sheetnames:
             LOGGER.info("Reading sheet: %s", sn)
             ws = wb[sn]
-            rows = ws.iter_rows(values_only=True)
+            # Read cell objects to preserve hyperlink info
+            rows_cells = ws.iter_rows(values_only=False)
 
             # Reset header tracking per sheet
             self.all_headers = []
@@ -109,7 +195,8 @@ class ExcelHelper:
             self.dup_headers_idxs = []
 
             try:
-                self.all_headers = [str(h) if h is not None else "" for h in next(rows)]
+                header_cells = next(rows_cells)
+                self.all_headers = [str(h.value) if getattr(h, "value", None) is not None else "" for h in header_cells]
             except StopIteration:
                 LOGGER.warning("Sheet '%s' is empty, skipping", sn)
                 continue
@@ -132,5 +219,27 @@ class ExcelHelper:
                     sn,
                 )
 
-            for row_dict in self._generate_dict_reader(rows, skip_empty=skip_empty):
+            # Build a generator of processed row values, retaining hyperlinks
+            def processed_rows():
+                for r in rows_cells:
+                    processed = []
+                    for c in r:
+                        # Extract hyperlink target if present
+                        url = None
+                        try:
+                            if c.hyperlink:
+                                url = getattr(c.hyperlink, "target", None) or getattr(c.hyperlink, "location", None)
+                        except AttributeError:
+                            url = None
+
+                        val = c.value
+                        if url:
+                            # Preserve both displayed text and hyperlink URL, as a list of objects
+                            processed.append([{"text": self.convert_for_json(val), "url": url}])
+                        else:
+                            # Convert date-like values and datetimes
+                            processed.append(self.convert_for_json(val))
+                    yield processed
+
+            for row_dict in self._generate_dict_reader(processed_rows(), skip_empty=skip_empty):
                 yield sn, row_dict

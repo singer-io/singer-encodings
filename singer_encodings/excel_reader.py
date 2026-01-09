@@ -1,3 +1,12 @@
+"""Public API for iterating Excel rows via ExcelHelper.
+
+Produces a generator over `(sheet_name, row_dict)` with:
+- ISO-normalized date/datetime/time and common date-like strings.
+- Hyperlink preservation per cell as `[{"text": "...", "url": "..."}]`.
+- Optional validation of `key_properties` and `date_overrides` against headers.
+
+Returns `None` when the Excel file contains no rows.
+"""
 from .excel_helper import ExcelHelper
 
 def get_excel_row_iterator(
@@ -5,10 +14,17 @@ def get_excel_row_iterator(
     options=None,
     headers_in_catalog=None,
 ):
-    """
-    Returns an iterator over all rows in Excel.
-    If sheet_name is provided in options, returns only that sheet.
-    Converts datetime/date values automatically for JSON.
+    """Return a generator over `(sheet_name, row_dict)` for Excel rows.
+
+    Options:
+    - `sheet_name`: read only the named sheet.
+    - `key_properties`: set of required headers; raises if missing.
+    - `date_overrides`: headers expected to be dates; raises if missing.
+
+    Behavior:
+    - Values are normalized to ISO (dates/times and common date strings).
+    - Hyperlinks are preserved as `[{"text": "...", "url": "..."}]`.
+    - Returns `None` if the workbook is empty.
     """
     options = options or {}
 
