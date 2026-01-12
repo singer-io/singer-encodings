@@ -32,7 +32,7 @@ def get_excel_row_iterator(
     reader = excel_helper.get_all_sheets_iterator(
         workbook_stream=iterable,
         sheet_name=options.get("sheet_name"),
-        headers_in_catalog=headers_in_catalog
+        headers_in_catalog=headers_in_catalog,
     )
 
     try:

@@ -8,6 +8,9 @@ produce JSON-friendly row dictionaries:
     the special `_sdc_extra` field.
 - Preserves cell hyperlinks as a list of objects with the shape
     `[{"text": "...", "url": "..."}]`.
+- Preserves cell comments by adding a `comment` field in the same object,
+    e.g. `[{"text": "...", "url": "...", "comment": "..."}]` or
+    `[{"text": "...", "comment": "..."}]` when no hyperlink exists.
 - Normalizes `datetime`, `date`, `time`, and common date-like strings to
     ISO-8601 using `convert_for_json`.
 
@@ -61,10 +64,18 @@ class ExcelHelper:
                 dup_dictionary[key] = value
         return dup_dictionary
 
-    @staticmethod
-    def convert_for_json(value):
-        """Convert datetime/date/time to JSON-serializable string"""
+    def convert_for_json(self, value):
+        """Convert datetimes, dates, and common date-like strings to ISO.
+
+        - Datetime values: 'YYYY-MM-DDTHH:MM:SS'
+        - Date-only values: coerced to 'YYYY-MM-DDT00:00:00'
+        - Time-only values: 'HH:MM:SS'
+        """
         if isinstance(value, (datetime, date, time)):
+            if isinstance(value, datetime):
+                return value.isoformat()
+            if isinstance(value, date):
+                return datetime.combine(value, time.min).isoformat()
             return value.isoformat()
 
         # Try to parse common date/datetime string formats to ISO
@@ -98,7 +109,7 @@ class ExcelHelper:
                 "%Y/%m/%d",
             ]
 
-            # Try datetime patterns first
+            # Try datetime patterns first (keep time component if present)
             for fmt in datetime_patterns:
                 try:
                     dt = datetime.strptime(s, fmt)
@@ -110,7 +121,7 @@ class ExcelHelper:
             for fmt in date_patterns:
                 try:
                     d = datetime.strptime(s, fmt).date()
-                    return d.isoformat()
+                    return datetime.combine(d, time.min).isoformat()
                 except Exception:
                     pass
 
@@ -158,13 +169,11 @@ class ExcelHelper:
 
             # Recursively convert all values to JSON-serializable
             def convert_recursive(val):
-                if isinstance(val, (datetime, date, time)):
-                    return val.isoformat()
-                elif isinstance(val, list):
+                if isinstance(val, list):
                     return [convert_recursive(x) for x in val]
                 elif isinstance(val, dict):
                     return {k: convert_recursive(v) for k, v in val.items()}
-                return val
+                return self.convert_for_json(val)
 
             yield convert_recursive(row_dict)
 
@@ -176,9 +185,11 @@ class ExcelHelper:
         - Skips fully empty rows when `skip_empty=True`.
         - Duplicate headers and non-catalog fields are captured in `_sdc_extra`.
         - Hyperlinked cells are represented as `[{"text": "...", "url": "..."}]`.
-        - Date-like values and datetimes are normalized to ISO strings.
+        - Cells with comments include a `comment` field in the same object.
+        - Date-only values are coerced to 'YYYY-MM-DDT00:00:00'; datetimes keep time.
         """
-        wb = load_workbook(workbook_stream, read_only=True, data_only=True)
+        # Use non-read-only mode so hyperlink metadata is available on cells
+        wb = load_workbook(workbook_stream, read_only=False, data_only=True)
         sheetnames = [sheet_name] if sheet_name else wb.sheetnames
 
         for sn in sheetnames:
@@ -219,7 +230,7 @@ class ExcelHelper:
                     sn,
                 )
 
-            # Build a generator of processed row values, retaining hyperlinks
+            # Build a generator of processed row values, retaining hyperlinks and comments
             def processed_rows():
                 for r in rows_cells:
                     processed = []
@@ -231,11 +242,24 @@ class ExcelHelper:
                                 url = getattr(c.hyperlink, "target", None) or getattr(c.hyperlink, "location", None)
                         except AttributeError:
                             url = None
+                        # Extract comment text if present
+                        comment_text = None
+                        try:
+                            if c.comment and getattr(c.comment, "text", None):
+                                comment_text = c.comment.text
+                        except AttributeError:
+                            comment_text = None
 
                         val = c.value
                         if url:
-                            # Preserve both displayed text and hyperlink URL, as a list of objects
-                            processed.append([{"text": self.convert_for_json(val), "url": url}])
+                            # Preserve displayed text, hyperlink URL and optional comment, as a list of one object
+                            obj = {"text": self.convert_for_json(val), "url": url}
+                            if comment_text is not None:
+                                obj["comment"] = comment_text
+                            processed.append([obj])
+                        elif comment_text is not None:
+                            # Preserve text with comment when no hyperlink exists, as a list of one object
+                            processed.append([{ "text": self.convert_for_json(val), "comment": comment_text }])
                         else:
                             # Convert date-like values and datetimes
                             processed.append(self.convert_for_json(val))
