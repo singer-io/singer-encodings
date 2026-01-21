@@ -65,18 +65,18 @@ class ExcelHelper:
         return dup_dictionary
 
     def convert_for_json(self, value):
-        """Convert datetimes, dates, and common date-like strings to ISO.
+        """Convert datetimes, dates, and common date-like strings to ISO-8601 with Z.
 
-        - Datetime values: 'YYYY-MM-DDTHH:MM:SS'
-        - Date-only values: coerced to 'YYYY-MM-DDT00:00:00'
+        - Datetime values: 'YYYY-MM-DDTHH:MM:SSZ' (assumes naive as UTC)
+        - Date-only values: coerced to 'YYYY-MM-DDT00:00:00Z'
         - Time-only values: 'HH:MM:SS'
         """
         if isinstance(value, (datetime, date, time)):
             if isinstance(value, datetime):
-                return value.isoformat()
+                return value.strftime('%Y-%m-%dT%H:%M:%SZ')
             if isinstance(value, date):
-                return datetime.combine(value, time.min).isoformat()
-            return value.isoformat()
+                return datetime.combine(value, time.min).strftime('%Y-%m-%dT%H:%M:%SZ')
+            return value.strftime('%H:%M:%S')
 
         # Try to parse common date/datetime string formats to ISO
         if isinstance(value, str):
@@ -113,7 +113,7 @@ class ExcelHelper:
             for fmt in datetime_patterns:
                 try:
                     dt = datetime.strptime(s, fmt)
-                    return dt.isoformat()
+                    return dt.strftime('%Y-%m-%dT%H:%M:%SZ')
                 except Exception:
                     pass
 
@@ -121,7 +121,7 @@ class ExcelHelper:
             for fmt in date_patterns:
                 try:
                     d = datetime.strptime(s, fmt).date()
-                    return datetime.combine(d, time.min).isoformat()
+                    return datetime.combine(d, time.min).strftime('%Y-%m-%dT%H:%M:%SZ')
                 except Exception:
                     pass
 
@@ -242,24 +242,90 @@ class ExcelHelper:
                                 url = getattr(c.hyperlink, "target", None) or getattr(c.hyperlink, "location", None)
                         except AttributeError:
                             url = None
-                        # Extract comment text if present
-                        comment_text = None
+                        # Extract comment data (text and author) if present
+                        comment_data = None
                         try:
-                            if c.comment and getattr(c.comment, "text", None):
-                                comment_text = c.comment.text
-                        except AttributeError:
-                            comment_text = None
+                            if c.comment:
+                                comment_obj = {}
+                                comment_text = getattr(c.comment, "text", None)
+
+                                if comment_text:
+                                    # Split comment into sections by signature pattern
+                                    # Pattern: any text followed by "\n\t-AuthorName"
+                                    sections = []
+                                    current_text = []
+                                    lines = comment_text.split('\n')
+
+                                    for line in lines:
+                                        # Check if line is a signature (starts with whitespace and dash)
+                                        stripped = line.lstrip()
+                                        if stripped.startswith('-') and current_text:
+                                            # Extract author name after the dash
+                                            author_name = stripped[1:].strip()
+                                            text_content = '\n'.join(current_text).strip()
+                                            sections.append({
+                                                "text": text_content,
+                                                "author": author_name
+                                            })
+                                            current_text = []
+                                        else:
+                                            current_text.append(line)
+
+                                    # Handle any remaining text without signature
+                                    if current_text:
+                                        remaining = '\n'.join(current_text).strip()
+                                        if remaining:
+                                            sections.append({
+                                                "text": remaining,
+                                                "author": None
+                                            })
+
+                                    # Get Excel metadata author
+                                    excel_author = getattr(c.comment, "author", None)
+                                    if excel_author and excel_author.lower() != "none":
+                                        comment_obj["excel_author"] = excel_author
+
+                                    # If we have parsed sections, use them
+                                    if sections:
+                                        if len(sections) == 1:
+                                            # Single comment
+                                            comment_obj["text"] = sections[0]["text"]
+                                            if sections[0]["author"]:
+                                                comment_obj["author"] = sections[0]["author"]
+                                        else:
+                                            # Multiple comments/replies
+                                            # First section is the main comment
+                                            comment_obj["text"] = sections[0]["text"]
+                                            if sections[0]["author"]:
+                                                comment_obj["author"] = sections[0]["author"]
+
+                                            # Rest are replies
+                                            if len(sections) > 1:
+                                                comment_obj["replies"] = [
+                                                    {
+                                                        "text": s["text"],
+                                                        "author": s["author"]
+                                                    } for s in sections[1:] if s["author"] or s["text"]
+                                                ]
+                                    else:
+                                        # No sections parsed, use full text
+                                        comment_obj["text"] = comment_text
+
+                                if comment_obj:
+                                    comment_data = comment_obj
+                        except (AttributeError, ImportError):
+                            comment_data = None
 
                         val = c.value
                         if url:
                             # Preserve displayed text, hyperlink URL and optional comment, as a list of one object
                             obj = {"text": self.convert_for_json(val), "url": url}
-                            if comment_text is not None:
-                                obj["comment"] = comment_text
+                            if comment_data is not None:
+                                obj["comment"] = comment_data
                             processed.append([obj])
-                        elif comment_text is not None:
+                        elif comment_data is not None:
                             # Preserve text with comment when no hyperlink exists, as a list of one object
-                            processed.append([{ "text": self.convert_for_json(val), "comment": comment_text }])
+                            processed.append([{ "text": self.convert_for_json(val), "comment": comment_data }])
                         else:
                             # Convert date-like values and datetimes
                             processed.append(self.convert_for_json(val))
