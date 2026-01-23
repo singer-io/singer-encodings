@@ -250,66 +250,111 @@ class ExcelHelper:
                                 comment_text = getattr(c.comment, "text", None)
 
                                 if comment_text:
-                                    # Split comment into sections by signature pattern
-                                    # Pattern: any text followed by "\n\t-AuthorName"
-                                    sections = []
-                                    current_text = []
-                                    lines = comment_text.split('\n')
+                                    # Check if this is a threaded comment (modern Excel format)
+                                    is_threaded = comment_text.startswith("[Threaded comment]")
 
-                                    for line in lines:
-                                        # Check if line is a signature (starts with whitespace and dash)
-                                        stripped = line.lstrip()
-                                        if stripped.startswith('-') and current_text:
-                                            # Extract author name after the dash
-                                            author_name = stripped[1:].strip()
-                                            text_content = '\n'.join(current_text).strip()
-                                            sections.append({
-                                                "text": text_content,
-                                                "author": author_name
-                                            })
-                                            current_text = []
-                                        else:
-                                            current_text.append(line)
+                                    if is_threaded:
+                                        # Parse threaded comments format
+                                        # Format: [Threaded comment]\n\n...\nComment:\n    text\nReply:\n    reply text
+                                        sections = []
+                                        lines = comment_text.split('\n')
 
-                                    # Handle any remaining text without signature
-                                    if current_text:
-                                        remaining = '\n'.join(current_text).strip()
-                                        if remaining:
-                                            sections.append({
-                                                "text": remaining,
-                                                "author": None
-                                            })
+                                        i = 0
+                                        while i < len(lines):
+                                            line = lines[i].strip()
 
-                                    # Get Excel metadata author
-                                    excel_author = getattr(c.comment, "author", None)
-                                    if excel_author and excel_author.lower() != "none":
-                                        comment_obj["excel_author"] = excel_author
+                                            # Look for "Comment:" or "Reply:" markers
+                                            if line == "Comment:" or line == "Reply:":
+                                                # Collect text until next marker or end
+                                                comment_lines = []
+                                                i += 1
+                                                while i < len(lines):
+                                                    next_line = lines[i].strip()
+                                                    if next_line in ["Comment:", "Reply:", "Comment author:"]:
+                                                        break
+                                                    if next_line and not next_line.startswith("Your version of Excel"):
+                                                        comment_lines.append(next_line)
+                                                    i += 1
 
-                                    # If we have parsed sections, use them
-                                    if sections:
-                                        if len(sections) == 1:
-                                            # Single comment
-                                            comment_obj["text"] = sections[0]["text"]
-                                            if sections[0]["author"]:
-                                                comment_obj["author"] = sections[0]["author"]
-                                        else:
-                                            # Multiple comments/replies
-                                            # First section is the main comment
-                                            comment_obj["text"] = sections[0]["text"]
-                                            if sections[0]["author"]:
-                                                comment_obj["author"] = sections[0]["author"]
+                                                if comment_lines:
+                                                    sections.append({
+                                                        "text": '\n'.join(comment_lines).strip(),
+                                                        "author": None
+                                                    })
+                                                continue
+                                            i += 1
 
-                                            # Rest are replies
-                                            if len(sections) > 1:
+                                        # Build comment object for threaded comments
+                                        if sections:
+                                            if len(sections) == 1:
+                                                comment_obj["text"] = sections[0]["text"]
+                                            else:
+                                                comment_obj["text"] = sections[0]["text"]
                                                 comment_obj["replies"] = [
-                                                    {
-                                                        "text": s["text"],
-                                                        "author": s["author"]
-                                                    } for s in sections[1:] if s["author"] or s["text"]
+                                                    {"text": s["text"], "author": s["author"]}
+                                                    for s in sections[1:]
                                                 ]
                                     else:
-                                        # No sections parsed, use full text
-                                        comment_obj["text"] = comment_text
+                                        # Parse old-style comments format
+                                        # Pattern: any text followed by "\n\t-AuthorName"
+                                        sections = []
+                                        current_text = []
+                                        lines = comment_text.split('\n')
+
+                                        for line in lines:
+                                            # Check if line is a signature (starts with whitespace and dash)
+                                            stripped = line.lstrip()
+                                            if stripped.startswith('-') and current_text:
+                                                # Extract author name after the dash
+                                                author_name = stripped[1:].strip()
+                                                text_content = '\n'.join(current_text).strip()
+                                                sections.append({
+                                                    "text": text_content,
+                                                    "author": author_name
+                                                })
+                                                current_text = []
+                                            else:
+                                                current_text.append(line)
+
+                                        # Handle any remaining text without signature
+                                        if current_text:
+                                            remaining = '\n'.join(current_text).strip()
+                                            if remaining:
+                                                sections.append({
+                                                    "text": remaining,
+                                                    "author": None
+                                                })
+
+                                        # Get Excel metadata author
+                                        excel_author = getattr(c.comment, "author", None)
+                                        if excel_author and excel_author.lower() != "none":
+                                            comment_obj["excel_author"] = excel_author
+
+                                        # If we have parsed sections, use them
+                                        if sections:
+                                            if len(sections) == 1:
+                                                # Single comment
+                                                comment_obj["text"] = sections[0]["text"]
+                                                if sections[0]["author"]:
+                                                    comment_obj["author"] = sections[0]["author"]
+                                            else:
+                                                # Multiple comments/replies
+                                                # First section is the main comment
+                                                comment_obj["text"] = sections[0]["text"]
+                                                if sections[0]["author"]:
+                                                    comment_obj["author"] = sections[0]["author"]
+
+                                                # Rest are replies
+                                                if len(sections) > 1:
+                                                    comment_obj["replies"] = [
+                                                        {
+                                                            "text": s["text"],
+                                                            "author": s["author"]
+                                                        } for s in sections[1:] if s["author"] or s["text"]
+                                                    ]
+                                        else:
+                                            # No sections parsed, use full text
+                                            comment_obj["text"] = comment_text
 
                                 if comment_obj:
                                     comment_data = comment_obj
