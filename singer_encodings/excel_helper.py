@@ -43,6 +43,36 @@ class ExcelHelper:
 
     Attributes are reset per sheet when iterating a workbook.
     """
+
+    # Class-level constants for date pattern matching
+    DATETIME_PATTERNS = [
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d %H:%M",
+        "%d-%b-%y %H:%M:%S",
+        "%d-%b-%y %H:%M",
+        "%d-%b-%Y %H:%M:%S",
+        "%d-%b-%Y %H:%M",
+        "%m/%d/%Y %H:%M:%S",
+        "%m/%d/%Y %H:%M",
+        "%d/%m/%Y %H:%M:%S",
+        "%d/%m/%Y %H:%M",
+    ]
+
+    DATE_PATTERNS = [
+        "%Y-%m-%d",
+        "%d-%b-%y",   # e.g., 15-Aug-25
+        "%d-%b-%Y",
+        "%d %b %Y",
+        "%b %d, %Y",
+        "%m/%d/%Y",
+        "%d/%m/%Y",
+        "%m/%d/%y",
+        "%d/%m/%y",
+        "%d-%m-%Y",
+        "%d-%m-%y",
+        "%Y/%m/%d",
+    ]
+
     def __init__(self):
         self.all_headers = []
         self.unique_headers = []
@@ -70,59 +100,33 @@ class ExcelHelper:
         - Date-only values: coerced to 'YYYY-MM-DDT00:00:00Z'
         - Time-only values: 'HH:MM:SS'
         """
-        if isinstance(value, (datetime, date, time)):
-            if isinstance(value, datetime):
-                return value.strftime('%Y-%m-%dT%H:%M:%SZ')
-            if isinstance(value, date):
-                return datetime.combine(value, time.min).strftime('%Y-%m-%dT%H:%M:%SZ')
+        # Check most specific types first (datetime is a subclass of date)
+        if isinstance(value, datetime):
+            return value.strftime('%Y-%m-%dT%H:%M:%SZ')
+        elif isinstance(value, date):
+            return datetime.combine(value, time.min).strftime('%Y-%m-%dT%H:%M:%SZ')
+        elif isinstance(value, time):
             return value.strftime('%H:%M:%S')
 
         # Try to parse common date/datetime string formats to ISO
         if isinstance(value, str):
             s = value.strip()
-            # Datetime patterns (with time component)
-            datetime_patterns = [
-                "%Y-%m-%d %H:%M:%S",
-                "%Y-%m-%d %H:%M",
-                "%d-%b-%y %H:%M:%S",
-                "%d-%b-%y %H:%M",
-                "%d-%b-%Y %H:%M:%S",
-                "%d-%b-%Y %H:%M",
-                "%m/%d/%Y %H:%M:%S",
-                "%m/%d/%Y %H:%M",
-                "%d/%m/%Y %H:%M:%S",
-                "%d/%m/%Y %H:%M",
-            ]
-            date_patterns = [
-                "%Y-%m-%d",
-                "%d-%b-%y",   # e.g., 15-Aug-25
-                "%d-%b-%Y",
-                "%d %b %Y",
-                "%b %d, %Y",
-                "%m/%d/%Y",
-                "%d/%m/%Y",
-                "%m/%d/%y",
-                "%d/%m/%y",
-                "%d-%m-%Y",
-                "%d-%m-%y",
-                "%Y/%m/%d",
-            ]
 
             # Try datetime patterns first (keep time component if present)
-            for fmt in datetime_patterns:
+            for fmt in self.DATETIME_PATTERNS:
                 try:
                     dt = datetime.strptime(s, fmt)
                     return dt.strftime('%Y-%m-%dT%H:%M:%SZ')
-                except Exception:
-                    pass
+                except (ValueError, TypeError):
+                    continue
 
             # Then date-only patterns
-            for fmt in date_patterns:
+            for fmt in self.DATE_PATTERNS:
                 try:
                     d = datetime.strptime(s, fmt).date()
                     return datetime.combine(d, time.min).strftime('%Y-%m-%dT%H:%M:%SZ')
-                except Exception:
-                    pass
+                except (ValueError, TypeError):
+                    continue
 
         return value
 
@@ -137,8 +141,9 @@ class ExcelHelper:
         for row in rows:
             row = list(row)
 
-            if skip_empty and all(v is None for v in row):
-                continue  # skip completely empty rows
+            # Skip completely empty rows - short circuit on first non-None
+            if skip_empty and not any(v is not None for v in row):
+                continue
 
             row_length = len(row)
             header_length = len(self.all_headers)
@@ -176,6 +181,185 @@ class ExcelHelper:
 
             yield convert_recursive(row_dict)
 
+    def _extract_hyperlink(self, cell):
+        """Extract hyperlink URL from a cell.
+
+        Returns:
+            str or None: The hyperlink URL if present, None otherwise
+        """
+        try:
+            if cell.hyperlink:
+                return getattr(cell.hyperlink, "target", None) or getattr(cell.hyperlink, "location", None)
+        except AttributeError:
+            pass
+        return None
+
+    def _parse_threaded_comment(self, comment_text):
+        """Parse modern threaded comment format.
+
+        Format: [Threaded comment]\n\n...\nComment:\n    text\nReply:\n    reply text
+
+        Returns:
+            dict: Parsed comment object with 'text' and optional 'replies'
+        """
+        sections = []
+        lines = comment_text.split('\n')
+
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+
+            # Look for "Comment:" or "Reply:" markers
+            if line == "Comment:" or line == "Reply:":
+                # Collect text until next marker or end
+                comment_lines = []
+                i += 1
+                while i < len(lines):
+                    next_line = lines[i].strip()
+                    if next_line in ["Comment:", "Reply:", "Comment author:"]:
+                        break
+                    if next_line and not next_line.startswith("Your version of Excel"):
+                        comment_lines.append(next_line)
+                    i += 1
+
+                if comment_lines:
+                    sections.append({
+                        "text": '\n'.join(comment_lines).strip(),
+                        "author": None
+                    })
+                continue
+            i += 1
+
+        # Build comment object for threaded comments
+        if not sections:
+            return {"text": comment_text}
+
+        comment_obj = {"text": sections[0]["text"]}
+        if len(sections) > 1:
+            comment_obj["replies"] = [
+                {"text": s["text"], "author": s["author"]}
+                for s in sections[1:]
+            ]
+        return comment_obj
+
+    def _parse_legacy_comment(self, comment_text):
+        """Parse old-style comment format.
+
+        Pattern: any text followed by "\n\t-AuthorName"
+
+        Returns:
+            dict: Parsed comment object with 'text', optional 'author' and 'excel_author', and optional 'replies'
+        """
+        sections = []
+        current_text = []
+        lines = comment_text.split('\n')
+
+        for line in lines:
+            # Check if line is a signature (starts with whitespace and dash)
+            stripped = line.lstrip()
+            if stripped.startswith('-') and current_text:
+                # Extract author name after the dash
+                author_name = stripped[1:].strip()
+                text_content = '\n'.join(current_text).strip()
+                sections.append({
+                    "text": text_content,
+                    "author": author_name
+                })
+                current_text = []
+            else:
+                current_text.append(line)
+
+        # Handle any remaining text without signature
+        if current_text:
+            remaining = '\n'.join(current_text).strip()
+            if remaining:
+                sections.append({
+                    "text": remaining,
+                    "author": None
+                })
+
+        if not sections:
+            return {"text": comment_text}
+
+        # Build comment object
+        comment_obj = {"text": sections[0]["text"]}
+        if sections[0]["author"]:
+            comment_obj["author"] = sections[0]["author"]
+
+        # Rest are replies
+        if len(sections) > 1:
+            comment_obj["replies"] = [
+                {"text": s["text"], "author": s["author"]}
+                for s in sections[1:] if s["author"] or s["text"]
+            ]
+
+        return comment_obj
+
+    def _extract_comment_data(self, cell):
+        """Extract and parse comment from a cell.
+
+        Returns:
+            dict or None: Parsed comment data if present, None otherwise
+        """
+        try:
+            if not cell.comment:
+                return None
+
+            comment_text = getattr(cell.comment, "text", None)
+            if not comment_text:
+                return None
+
+            # Check if this is a threaded comment (modern Excel format)
+            is_threaded = comment_text.startswith("[Threaded comment]")
+
+            if is_threaded:
+                comment_obj = self._parse_threaded_comment(comment_text)
+            else:
+                comment_obj = self._parse_legacy_comment(comment_text)
+                # Add Excel metadata author for legacy comments
+                excel_author = getattr(cell.comment, "author", None)
+                if excel_author and excel_author.lower() != "none":
+                    comment_obj["excel_author"] = excel_author
+
+            return comment_obj if comment_obj else None
+
+        except (AttributeError, ImportError) as e:
+            LOGGER.debug("Failed to extract comment: %s", e)
+            return None
+
+    def _process_cell(self, cell):
+        """Process a single cell and return its value.
+
+        Extracts hyperlinks, comments, and normalizes date values.
+
+        Returns:
+            Value from the cell (may be primitive, list with metadata, etc.)
+        """
+        url = self._extract_hyperlink(cell)
+        comment_data = self._extract_comment_data(cell)
+        val = cell.value
+
+        if url:
+            # Preserve displayed text, hyperlink URL and optional comment
+            obj = {"text": self.convert_for_json(val), "url": url}
+            if comment_data is not None:
+                obj["comment"] = comment_data
+            return [obj]
+        elif comment_data is not None:
+            # Preserve text with comment when no hyperlink exists
+            return [{"text": self.convert_for_json(val), "comment": comment_data}]
+        else:
+            # Convert date-like values and datetimes
+            return self.convert_for_json(val)
+
+    def _processed_rows_generator(self, rows_cells):
+        """Generate processed rows from cell iterator.
+
+        Yields:
+            list: Processed row values with hyperlinks and comments preserved
+        """
+        for row in rows_cells:
+            yield [self._process_cell(cell) for cell in row]
 
     def get_all_sheets_iterator(self, workbook_stream, headers_in_catalog=None, sheet_name=None, skip_empty=True):
         """Yield `(sheet_name, row_dict)` for all sheets (or a specific sheet).
@@ -189,191 +373,58 @@ class ExcelHelper:
         """
         # Use non-read-only mode so hyperlink metadata is available on cells
         wb = load_workbook(workbook_stream, read_only=False, data_only=True)
-        sheetnames = [sheet_name] if sheet_name else wb.sheetnames
 
-        for sn in sheetnames:
-            LOGGER.info("Reading sheet: %s", sn)
-            ws = wb[sn]
-            # Read cell objects to preserve hyperlink info
-            rows_cells = ws.iter_rows(values_only=False)
-
-            # Reset header tracking per sheet
-            self.all_headers = []
-            self.unique_headers = []
-            self.unique_headers_idxs = []
-            self.duplicate_headers = []
-            self.dup_headers_idxs = []
-
-            try:
-                header_cells = next(rows_cells)
-                self.all_headers = [str(h.value) if getattr(h, "value", None) is not None else "" for h in header_cells]
-            except StopIteration:
-                LOGGER.warning("Sheet '%s' is empty, skipping", sn)
-                continue
-
-            for idx, header in enumerate(self.all_headers):
-                not_in_catalog = headers_in_catalog and header not in headers_in_catalog
-                if header in self.unique_headers or not_in_catalog:
-                    if not_in_catalog and header not in self.duplicate_headers:
-                        LOGGER.warning("\"%s\" field not in catalog, stored in _sdc_extra", header)
-                    self.duplicate_headers.append(header)
-                    self.dup_headers_idxs.append(idx)
-                else:
-                    self.unique_headers.append(header)
-                    self.unique_headers_idxs.append(idx)
-
-            if self.dup_headers_idxs:
-                LOGGER.warning(
-                    "Duplicate Header(s) %s found in sheet '%s', stored in _sdc_extra",
-                    set(self.duplicate_headers),
-                    sn,
+        try:
+            # Validate sheet_name exists
+            if sheet_name and sheet_name not in wb.sheetnames:
+                raise ValueError(
+                    f"Sheet '{sheet_name}' not found. Available sheets: {wb.sheetnames}"
                 )
 
-            # Build a generator of processed row values, retaining hyperlinks and comments
-            def processed_rows():
-                for r in rows_cells:
-                    processed = []
-                    for c in r:
-                        # Extract hyperlink target if present
-                        url = None
-                        try:
-                            if c.hyperlink:
-                                url = getattr(c.hyperlink, "target", None) or getattr(c.hyperlink, "location", None)
-                        except AttributeError:
-                            url = None
-                        # Extract comment data (text and author) if present
-                        comment_data = None
-                        try:
-                            if c.comment:
-                                comment_obj = {}
-                                comment_text = getattr(c.comment, "text", None)
+            sheetnames = [sheet_name] if sheet_name else wb.sheetnames
 
-                                if comment_text:
-                                    # Check if this is a threaded comment (modern Excel format)
-                                    is_threaded = comment_text.startswith("[Threaded comment]")
+            for sn in sheetnames:
+                LOGGER.info("Reading sheet: %s", sn)
+                ws = wb[sn]
+                # Read cell objects to preserve hyperlink info
+                rows_cells = ws.iter_rows(values_only=False)
 
-                                    if is_threaded:
-                                        # Parse threaded comments format
-                                        # Format: [Threaded comment]\n\n...\nComment:\n    text\nReply:\n    reply text
-                                        sections = []
-                                        lines = comment_text.split('\n')
+                # Reset header tracking per sheet
+                self.all_headers = []
+                self.unique_headers = []
+                self.unique_headers_idxs = []
+                self.duplicate_headers = []
+                self.dup_headers_idxs = []
 
-                                        i = 0
-                                        while i < len(lines):
-                                            line = lines[i].strip()
+                try:
+                    header_cells = next(rows_cells)
+                    self.all_headers = [str(h.value) if getattr(h, "value", None) is not None else "" for h in header_cells]
+                except StopIteration:
+                    LOGGER.warning("Sheet '%s' is empty, skipping", sn)
+                    continue
 
-                                            # Look for "Comment:" or "Reply:" markers
-                                            if line == "Comment:" or line == "Reply:":
-                                                # Collect text until next marker or end
-                                                comment_lines = []
-                                                i += 1
-                                                while i < len(lines):
-                                                    next_line = lines[i].strip()
-                                                    if next_line in ["Comment:", "Reply:", "Comment author:"]:
-                                                        break
-                                                    if next_line and not next_line.startswith("Your version of Excel"):
-                                                        comment_lines.append(next_line)
-                                                    i += 1
+                for idx, header in enumerate(self.all_headers):
+                    not_in_catalog = headers_in_catalog and header not in headers_in_catalog
+                    if header in self.unique_headers or not_in_catalog:
+                        if not_in_catalog and header not in self.duplicate_headers:
+                            LOGGER.warning("\"%s\" field not in catalog, stored in _sdc_extra", header)
+                        self.duplicate_headers.append(header)
+                        self.dup_headers_idxs.append(idx)
+                    else:
+                        self.unique_headers.append(header)
+                        self.unique_headers_idxs.append(idx)
 
-                                                if comment_lines:
-                                                    sections.append({
-                                                        "text": '\n'.join(comment_lines).strip(),
-                                                        "author": None
-                                                    })
-                                                continue
-                                            i += 1
+                if self.dup_headers_idxs:
+                    LOGGER.warning(
+                        "Duplicate Header(s) %s found in sheet '%s', stored in _sdc_extra",
+                        set(self.duplicate_headers),
+                        sn,
+                    )
 
-                                        # Build comment object for threaded comments
-                                        if sections:
-                                            if len(sections) == 1:
-                                                comment_obj["text"] = sections[0]["text"]
-                                            else:
-                                                comment_obj["text"] = sections[0]["text"]
-                                                comment_obj["replies"] = [
-                                                    {"text": s["text"], "author": s["author"]}
-                                                    for s in sections[1:]
-                                                ]
-                                    else:
-                                        # Parse old-style comments format
-                                        # Pattern: any text followed by "\n\t-AuthorName"
-                                        sections = []
-                                        current_text = []
-                                        lines = comment_text.split('\n')
-
-                                        for line in lines:
-                                            # Check if line is a signature (starts with whitespace and dash)
-                                            stripped = line.lstrip()
-                                            if stripped.startswith('-') and current_text:
-                                                # Extract author name after the dash
-                                                author_name = stripped[1:].strip()
-                                                text_content = '\n'.join(current_text).strip()
-                                                sections.append({
-                                                    "text": text_content,
-                                                    "author": author_name
-                                                })
-                                                current_text = []
-                                            else:
-                                                current_text.append(line)
-
-                                        # Handle any remaining text without signature
-                                        if current_text:
-                                            remaining = '\n'.join(current_text).strip()
-                                            if remaining:
-                                                sections.append({
-                                                    "text": remaining,
-                                                    "author": None
-                                                })
-
-                                        # Get Excel metadata author
-                                        excel_author = getattr(c.comment, "author", None)
-                                        if excel_author and excel_author.lower() != "none":
-                                            comment_obj["excel_author"] = excel_author
-
-                                        # If we have parsed sections, use them
-                                        if sections:
-                                            if len(sections) == 1:
-                                                # Single comment
-                                                comment_obj["text"] = sections[0]["text"]
-                                                if sections[0]["author"]:
-                                                    comment_obj["author"] = sections[0]["author"]
-                                            else:
-                                                # Multiple comments/replies
-                                                # First section is the main comment
-                                                comment_obj["text"] = sections[0]["text"]
-                                                if sections[0]["author"]:
-                                                    comment_obj["author"] = sections[0]["author"]
-
-                                                # Rest are replies
-                                                if len(sections) > 1:
-                                                    comment_obj["replies"] = [
-                                                        {
-                                                            "text": s["text"],
-                                                            "author": s["author"]
-                                                        } for s in sections[1:] if s["author"] or s["text"]
-                                                    ]
-                                        else:
-                                            # No sections parsed, use full text
-                                            comment_obj["text"] = comment_text
-
-                                if comment_obj:
-                                    comment_data = comment_obj
-                        except (AttributeError, ImportError):
-                            comment_data = None
-
-                        val = c.value
-                        if url:
-                            # Preserve displayed text, hyperlink URL and optional comment, as a list of one object
-                            obj = {"text": self.convert_for_json(val), "url": url}
-                            if comment_data is not None:
-                                obj["comment"] = comment_data
-                            processed.append([obj])
-                        elif comment_data is not None:
-                            # Preserve text with comment when no hyperlink exists, as a list of one object
-                            processed.append([{ "text": self.convert_for_json(val), "comment": comment_data }])
-                        else:
-                            # Convert date-like values and datetimes
-                            processed.append(self.convert_for_json(val))
-                    yield processed
-
-            for row_dict in self._generate_dict_reader(processed_rows(), skip_empty=skip_empty):
-                yield sn, row_dict
+                # Process rows using helper method
+                processed_rows = self._processed_rows_generator(rows_cells)
+                for row_dict in self._generate_dict_reader(processed_rows, skip_empty=skip_empty):
+                    yield sn, row_dict
+        finally:
+            # Ensure workbook is always closed to prevent memory leaks
+            wb.close()
