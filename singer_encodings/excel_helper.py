@@ -18,7 +18,7 @@ These conventions ensure downstream JSON serialization is stable and that
 metadata like hyperlinks is not lost.
 """
 from openpyxl import load_workbook
-import logging
+import singer
 from datetime import datetime, date, time
 
 # ----------------------------
@@ -27,8 +27,7 @@ from datetime import datetime, date, time
 SDC_EXTRA_COLUMN = "_sdc_extra"
 NO_HEADERS = "no_headers"
 
-logging.basicConfig(level=logging.INFO)
-LOGGER = logging.getLogger(__name__)
+LOGGER = singer.get_logger()
 
 # ----------------------------
 # ExcelHelper
