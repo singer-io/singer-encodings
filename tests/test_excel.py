@@ -394,5 +394,138 @@ class TestInvalidSheetName(unittest.TestCase):
             self.assertIn("Available sheets", str(context.exception))
 
 
+class TestWorkbookCleanupOnException(unittest.TestCase):
+    """Test that workbook is properly closed even when exceptions occur."""
+    def setUp(self):
+        self.temp_file = tempfile.NamedTemporaryFile(mode='wb', suffix='.xlsx', delete=False)
+        self.temp_file.close()
+        wb = Workbook()
+        ws = wb.active
+        ws.append(["id", "name"])
+        ws.append([1, "Test"])
+        wb.save(self.temp_file.name)
+        wb.close()
+
+    def tearDown(self):
+        if os.path.exists(self.temp_file.name):
+            os.unlink(self.temp_file.name)
+
+    def test_workbook_cleanup_on_invalid_sheet(self):
+        """Verify workbook is closed when invalid sheet name is requested."""
+        with open(self.temp_file.name, 'rb') as f:
+            options = {'sheet_name': 'NonExistent'}
+            with self.assertRaises(ValueError):
+                row_iterator = get_excel_row_iterator(f, options=options)
+                if row_iterator:
+                    list(row_iterator)
+        with open(self.temp_file.name, 'rb') as f:
+            row_iterator = get_excel_row_iterator(f)
+            rows = list(row_iterator)
+            self.assertEqual(len(rows), 1)
+
+    def test_workbook_cleanup_on_validation_error(self):
+        """Verify workbook is closed when validation fails."""
+        with open(self.temp_file.name, 'rb') as f:
+            options = {'key_properties': ['nonexistent_column']}
+            with self.assertRaises(ValueError):
+                row_iterator = get_excel_row_iterator(f, options=options)
+                if row_iterator:
+                    list(row_iterator)
+        with open(self.temp_file.name, 'rb') as f:
+            row_iterator = get_excel_row_iterator(f)
+            rows = list(row_iterator)
+            self.assertEqual(len(rows), 1)
+
+
+class TestExcessValues(unittest.TestCase):
+    """Test handling of rows with more values than headers."""
+    def setUp(self):
+        self.temp_file = tempfile.NamedTemporaryFile(mode='wb', suffix='.xlsx', delete=False)
+        self.temp_file.close()
+        wb = Workbook()
+        ws = wb.active
+        ws.append(["id", "name", "email"])
+        ws.append([1, "John Doe", "john@example.com", "Extra1", "Extra2"])
+        ws.append([2, "Jane Smith", "jane@example.com", "Extra3"])
+        ws.append([3, "Bob Johnson", "bob@example.com"])
+        wb.save(self.temp_file.name)
+        wb.close()
+
+    def tearDown(self):
+        if os.path.exists(self.temp_file.name):
+            os.unlink(self.temp_file.name)
+
+    def test_excess_values_handling(self):
+        """Test that excess values beyond header count are stored in _sdc_extra.
+
+        When a row has more values than the original headers, Excel reads those
+        additional columns as having empty header names. The first empty header
+        is treated as a unique field, while subsequent empty headers trigger
+        duplicate detection and are stored in _sdc_extra.
+        """
+        with open(self.temp_file.name, 'rb') as f:
+            row_iterator = get_excel_row_iterator(f)
+            rows = list(row_iterator)
+            self.assertEqual(len(rows), 3)
+            sheet_name, row1 = rows[0]
+            self.assertEqual(row1["id"], 1)
+            self.assertEqual(row1["name"], "John Doe")
+            self.assertEqual(row1["email"], "john@example.com")
+            self.assertEqual(row1[''], 'Extra1')
+            self.assertIn("_sdc_extra", row1)
+            self.assertEqual(len(row1["_sdc_extra"]), 1)
+            self.assertEqual(row1["_sdc_extra"][0][''], 'Extra2')
+            sheet_name, row2 = rows[1]
+            self.assertEqual(row2["id"], 2)
+            self.assertEqual(row2[''], 'Extra3')
+            self.assertIn("_sdc_extra", row2)
+            self.assertEqual(row2["_sdc_extra"][0][''], None)
+            sheet_name, row3 = rows[2]
+            self.assertEqual(row3["id"], 3)
+            self.assertEqual(row3[''], None)
+            self.assertIn("_sdc_extra", row3)
+            self.assertEqual(row3["_sdc_extra"][0][''], None)
+
+
+class TestHyperlinkAndComment(unittest.TestCase):
+    """Test handling of cells with both hyperlinks and comments."""
+    def setUp(self):
+        self.temp_file = tempfile.NamedTemporaryFile(mode='wb', suffix='.xlsx', delete=False)
+        self.temp_file.close()
+        wb = Workbook()
+        ws = wb.active
+        ws.append(["id", "website"])
+        ws.append([1, "Visit Site"])
+        ws['B2'].hyperlink = "https://example.com"
+        comment = Comment("Check this link", "Reviewer")
+        ws['B2'].comment = comment
+        wb.save(self.temp_file.name)
+        wb.close()
+
+    def tearDown(self):
+        if os.path.exists(self.temp_file.name):
+            os.unlink(self.temp_file.name)
+
+    def test_hyperlink_and_comment_combination(self):
+        """Test that cells with both hyperlinks and comments preserve both.
+
+        When a cell has both a hyperlink and a comment, they are combined
+        into a single structured dictionary containing all the data.
+        """
+        with open(self.temp_file.name, 'rb') as f:
+            row_iterator = get_excel_row_iterator(f)
+            rows = list(row_iterator)
+            sheet_name, row = rows[0]
+            self.assertIsInstance(row["website"], list)
+            self.assertEqual(len(row["website"]), 1)
+            cell_data = row["website"][0]
+            self.assertEqual(cell_data["text"], "Visit Site")
+            self.assertEqual(cell_data["url"], "https://example.com")
+            self.assertIn("comment", cell_data)
+            self.assertIsInstance(cell_data["comment"], dict)
+            self.assertEqual(cell_data["comment"]["text"], "Check this link")
+            self.assertEqual(cell_data["comment"]["excel_author"], "Reviewer")
+
+
 if __name__ == '__main__':
     unittest.main()
