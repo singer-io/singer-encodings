@@ -23,5 +23,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README documentation with usage examples for Excel files
 - Example scripts demonstrating Excel reader capabilities
 
-## [0.3.0] - Previous Release
-- Existing CSV, JSON, JSONL, Avro, and Parquet support
