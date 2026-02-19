@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.3.1]
+## [0.4.0]
 * Add Excel file support [#30](https://github.com/singer-io/singer-encodings/pull/30)
 
 ### Added
@@ -23,5 +23,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README documentation with usage examples for Excel files
 - Example scripts demonstrating Excel reader capabilities
 
-## [0.3.0] - Previous Release
-- Existing CSV, JSON, JSONL, Avro, and Parquet support
