@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 import subprocess
 
 setup(name="singer-encodings",
-      version='0.3.0',
+      version='0.4.0',
       description="Singer.io encodings library",
       author="Stitch",
       classifiers=['Programming Language :: Python :: 3 :: Only'],
@@ -12,7 +12,8 @@ setup(name="singer-encodings",
       install_requires=[
           "singer-python",
           "pyarrow==21.0.0",
-          "fastavro==1.12.0"
+          "fastavro==1.12.0",
+          "openpyxl==3.1.5"
       ],
       extras_require={
           "dev": ["pytest"]
