@@ -11,7 +11,7 @@ setup(name="singer-encodings",
       url="http://singer.io",
       install_requires=[
           "singer-python",
-          "pyarrow==21.0.0",
+          "pyarrow==23.0.1",
           "fastavro==1.12.0",
           "openpyxl==3.1.5"
       ],
