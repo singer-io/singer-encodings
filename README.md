@@ -191,6 +191,26 @@ with open('data.parquet', 'rb') as parquet_file:
         print(row)
 ```
 
+`get_row_iterator()` reads a Parquet file row-group by row-group, converting each row group's decompressed data into Python objects as it goes. It yields **every** row and should be used when you need the full dataset, such as during a full sync.
+
+#### Sampling for Schema Discovery
+
+If you only need a subset of rows - for example, to infer a schema during discovery - use `sample_row_iterator()` instead of wrapping `get_row_iterator()` with your own filtering. Filtering after the fact still requires each row group to be fully converted to Python objects before any rows are discarded, which can spike memory well beyond what's actually needed for a sample. `sample_row_iterator()` filters at the Arrow level, before conversion, so only the rows you actually keep are ever materialized as Python objects, and it skips decompressing row groups entirely when none of their rows would be sampled:
+
+```python
+from singer_encodings.parquet import sample_row_iterator
+
+with open('data.parquet', 'rb') as parquet_file:
+    # Yields every 5th row (globally, across all row groups), up to 1000 rows.
+    for row in sample_row_iterator(parquet_file, sample_rate=5, max_records=1000):
+        print(row)
+```
+
+- `sample_rate`: yield every Nth row, using a row index counted globally across all row groups.
+- `max_records`: stop once this many rows have been yielded. Pass `None` for no limit (iteration still ends at EOF).
+
+Do not use `sample_row_iterator()` for full syncs - it is only intended for cases where sampling a subset of rows is the goal.
+
 ## Development
 
 ### Running Tests
