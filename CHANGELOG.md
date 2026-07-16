@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - `sample_row_iterator(file_like_handle, sample_rate=5, max_records=1000)` in `singer_encodings.parquet` - filters rows at the Arrow level (via `Table.take()`) *before* converting them to Python objects, unlike `get_row_iterator()` combined with post-hoc filtering, which always converted an entire row group to Python objects regardless of `sample_rate`. Skips decompressing row groups with no sampled rows, and stops reading further row groups once `max_records` is reached.
+- `is_empty(file_like_handle)` in `singer_encodings.parquet` - returns `True` if the Parquet file has no rows, reading only the footer metadata (no row group decompression).
 - `get_row_iterator()` is unchanged and should still be used for full syncs, which need every row.
 
 ## [0.5.0]

@@ -211,6 +211,18 @@ with open('data.parquet', 'rb') as parquet_file:
 
 Do not use `sample_row_iterator()` for full syncs - it is only intended for cases where sampling a subset of rows is the goal.
 
+#### Checking for Empty Files
+
+`is_empty()` checks whether a Parquet file has any rows by reading only its footer metadata - it never decompresses row group data, so it's cheap to call before deciding whether to read a file at all:
+
+```python
+from singer_encodings.parquet import is_empty
+
+with open('data.parquet', 'rb') as parquet_file:
+    if is_empty(parquet_file):
+        print("File has no rows")
+```
+
 ## Development
 
 ### Running Tests

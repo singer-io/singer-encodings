@@ -8,6 +8,17 @@ def get_row_iterator(file_like_handle):
         yield from rows.to_pylist()
 
 
+def is_empty(file_like_handle):
+    """Returns True if the Parquet file has no rows.
+
+    Only reads the file's footer metadata - never decompresses any row
+    group data - so it's cheap to call before deciding whether to read
+    the file at all.
+    """
+    pf = pq.ParquetFile(file_like_handle)
+    return pf.metadata.num_rows == 0
+
+
 def sample_row_iterator(file_like_handle, sample_rate=5, max_records=1000):
     """Row-group-aware sampling iterator, intended ONLY for discovery-time
     schema sampling - do NOT use this for full syncs.

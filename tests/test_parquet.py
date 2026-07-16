@@ -3,7 +3,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import tempfile
 from unittest import mock
-from singer_encodings.parquet import get_row_iterator, sample_row_iterator
+from singer_encodings.parquet import get_row_iterator, sample_row_iterator, is_empty
 
 
 def make_parquet_file(num_rows=100, row_group_size=None):
@@ -120,3 +120,28 @@ class TestSampleRowIterator(unittest.TestCase):
         rows = list(sample_row_iterator(self.parquet_file, sample_rate=5, max_records=1000))
 
         self.assertEqual(rows, [])
+
+
+class TestIsEmpty(unittest.TestCase):
+    def tearDown(self):
+        self.parquet_file.close()
+
+    def test_true_for_a_file_with_zero_rows(self):
+        self.parquet_file = make_parquet_file(num_rows=0)
+
+        self.assertTrue(is_empty(self.parquet_file))
+
+    def test_false_for_a_file_with_rows(self):
+        self.parquet_file = make_parquet_file(num_rows=1)
+
+        self.assertFalse(is_empty(self.parquet_file))
+
+    def test_does_not_decompress_any_row_group(self):
+        # is_empty() should only need the footer metadata - never call
+        # read_row_group.
+        self.parquet_file = make_parquet_file(num_rows=100, row_group_size=10)
+
+        with mock.patch.object(pq.ParquetFile, 'read_row_group') as mocked_read:
+            is_empty(self.parquet_file)
+
+        mocked_read.assert_not_called()
