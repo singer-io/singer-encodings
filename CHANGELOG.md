@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0]
+* Add `sample_row_iterator()` and `is_empty()` to `parquet` module for memory-efficient discovery-time schema sampling [#32](https://github.com/singer-io/singer-encodings/pull/32)
+
+### Added
+- `sample_row_iterator(file_like_handle, sample_rate=5, max_records=1000)` in `singer_encodings.parquet` - filters rows at the Arrow level (via `Table.take()`) *before* converting them to Python objects, unlike `get_row_iterator()` combined with post-hoc filtering, which always converted an entire row group to Python objects regardless of `sample_rate`. Skips decompressing row groups with no sampled rows, and stops reading further row groups once `max_records` is reached.
+- `is_empty(file_like_handle)` in `singer_encodings.parquet` - returns `True` if the Parquet file has no rows, reading only the footer metadata (no row group decompression).
+- `get_row_iterator()` is unchanged and should still be used for full syncs, which need every row.
+
 ## [0.5.0]
 * Bump `pyarrow` dependency to improve compatibility and performance [#31](https://github.com/singer-io/singer-encodings/pull/31)
 
