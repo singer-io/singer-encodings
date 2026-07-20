@@ -6,7 +6,7 @@ from unittest import mock
 from singer_encodings.parquet import get_row_iterator, sample_row_iterator, is_empty
 
 
-def make_parquet_file(num_rows=100, row_group_size=None):
+def make_parquet_file(num_rows=100, row_group_size=None, compression='snappy'):
     parquet_file = tempfile.TemporaryFile('w+b')
     data = {
         "id": list(range(1, num_rows + 1)),
@@ -14,7 +14,7 @@ def make_parquet_file(num_rows=100, row_group_size=None):
         "value": [i * 1.5 for i in range(1, num_rows + 1)],
     }
     table = pa.table(data)
-    pq.write_table(table, parquet_file, row_group_size=row_group_size)
+    pq.write_table(table, parquet_file, row_group_size=row_group_size, compression=compression)
     parquet_file.seek(0)
     return parquet_file
 
@@ -120,6 +120,41 @@ class TestSampleRowIterator(unittest.TestCase):
         rows = list(sample_row_iterator(self.parquet_file, sample_rate=5, max_records=1000))
 
         self.assertEqual(rows, [])
+
+
+class TestSnappyCompression(unittest.TestCase):
+    # Snappy is pyarrow's default Parquet compression codec, so every
+    # other test in this file already exercises it implicitly via
+    # make_parquet_file(). This test makes that coverage explicit: it
+    # writes a file with compression='snappy', confirms the codec is
+    # actually SNAPPY at the row-group level, and verifies both
+    # get_row_iterator() (full sync) and sample_row_iterator()
+    # (schema discovery) decode it correctly.
+    def tearDown(self):
+        self.parquet_file.close()
+
+    def test_row_group_reports_snappy_codec(self):
+        self.parquet_file = make_parquet_file(num_rows=10, compression='snappy')
+
+        pf = pq.ParquetFile(self.parquet_file)
+        compression = pf.metadata.row_group(0).column(0).compression
+
+        self.assertEqual(compression, 'SNAPPY')
+
+    def test_get_row_iterator_reads_snappy_compressed_file(self):
+        self.parquet_file = make_parquet_file(num_rows=10, compression='snappy')
+
+        rows = list(get_row_iterator(self.parquet_file))
+
+        self.assertEqual(len(rows), 10)
+        self.assertEqual(rows[0], {'id': 1, 'name': 'user_1', 'value': 1.5})
+
+    def test_sample_row_iterator_reads_snappy_compressed_file(self):
+        self.parquet_file = make_parquet_file(num_rows=100, row_group_size=10, compression='snappy')
+
+        rows = list(sample_row_iterator(self.parquet_file, sample_rate=25, max_records=1000))
+
+        self.assertEqual([r['id'] for r in rows], [1, 26, 51, 76])
 
 
 class TestIsEmpty(unittest.TestCase):
