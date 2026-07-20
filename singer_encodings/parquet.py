@@ -61,9 +61,17 @@ def sample_row_iterator(file_like_handle, sample_rate=5, max_records=1000):
         ]
         current_row += num_rows
 
+        if max_records is not None:
+            # Cap to the remaining budget *before* take()/to_pylist(), so a
+            # single large row group whose sampled rows exceed max_records
+            # never materializes more Python objects than we'll actually
+            # yield. Without this, to_pylist() converts every sampled row
+            # in the row group up front, regardless of max_records.
+            indices = indices[:max_records - yielded]
+
         if not indices:
-            # None of this row group's rows are sampled - skip
-            # decompressing it entirely.
+            # None of this row group's rows are sampled (or the budget is
+            # already exhausted) - skip decompressing it entirely.
             continue
 
         table = pf.read_row_group(i)

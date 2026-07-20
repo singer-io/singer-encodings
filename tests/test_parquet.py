@@ -114,6 +114,41 @@ class TestSampleRowIterator(unittest.TestCase):
         self.assertEqual([r['id'] for r in rows], [1, 26, 51, 76])
         self.assertEqual(mocked_read.call_count, 4)
 
+    def test_caps_materialized_rows_to_max_records_within_a_single_large_row_group(self):
+        # A single row group large enough that sample_rate alone selects far
+        # more rows than max_records. Without capping `indices` to the
+        # remaining budget before take()/to_pylist(), the whole
+        # sample_rate-filtered subset of the row group gets converted to
+        # Python objects up front, regardless of max_records - the exact
+        # single-large-row-group scenario this ticket is about.
+        self.parquet_file = make_parquet_file(num_rows=1000, row_group_size=1000)
+        original_read_row_group = pq.ParquetFile.read_row_group
+        take_call_sizes = []
+
+        class TakeSpy:
+            # Wraps the real pa.Table so we can observe how many indices
+            # take() is called with, without needing to patch pyarrow's
+            # immutable Table type directly.
+            def __init__(self, table):
+                self._table = table
+
+            def take(self, indices):
+                take_call_sizes.append(len(indices))
+                return self._table.take(indices)
+
+        def spy_read_row_group(self, *args, **kwargs):
+            return TakeSpy(original_read_row_group(self, *args, **kwargs))
+
+        with mock.patch.object(pq.ParquetFile, 'read_row_group', autospec=True) as mocked_read:
+            mocked_read.side_effect = spy_read_row_group
+            # sample_rate=1 -> every one of the 1000 rows in the row group
+            # matches the sample boundary, but max_records=10 should mean
+            # take() is only ever called with 10 indices, not 1000.
+            rows = list(sample_row_iterator(self.parquet_file, sample_rate=1, max_records=10))
+
+        self.assertEqual(len(rows), 10)
+        self.assertEqual(take_call_sizes, [10])
+
     def test_empty_file(self):
         self.parquet_file = make_parquet_file(num_rows=0)
 
