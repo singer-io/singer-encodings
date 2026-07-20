@@ -119,8 +119,8 @@ class TestSampleRowIterator(unittest.TestCase):
         # more rows than max_records. Without capping `indices` to the
         # remaining budget before take()/to_pylist(), the whole
         # sample_rate-filtered subset of the row group gets converted to
-        # Python objects up front, regardless of max_records - the exact
-        # single-large-row-group scenario this ticket is about.
+        # Python objects up front, regardless of max_records - a real risk
+        # for files written as a single large row group.
         self.parquet_file = make_parquet_file(num_rows=1000, row_group_size=1000)
         original_read_row_group = pq.ParquetFile.read_row_group
         take_call_sizes = []
