@@ -1,11 +1,17 @@
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+# Used for full syncs, where every row must eventually be yielded. Row groups
+# are decoded incrementally in chunks of this size (rather than all at once
+# via read_row_group()) so peak memory stays proportional to one batch,
+# regardless of how large a single row group is.
+SYNC_BATCH_SIZE = 65536
+
+
 def get_row_iterator(file_like_handle):
     pf = pq.ParquetFile(file_like_handle)
-    for i in range(pf.num_row_groups):
-        rows = pf.read_row_group(i)
-        yield from rows.to_pylist()
+    for batch in pf.iter_batches(batch_size=SYNC_BATCH_SIZE):
+        yield from batch.to_pylist()
 
 
 def is_empty(file_like_handle):

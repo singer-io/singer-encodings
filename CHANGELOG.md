@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0]
+* Fix `get_row_iterator()` in `parquet` module to decode via bounded batches instead of whole row groups, avoiding OOM risk during full syncs of files with large/few row groups [#33](https://github.com/singer-io/singer-encodings/pull/33)
+
+### Fixed
+- `get_row_iterator(file_like_handle)` in `singer_encodings.parquet` - previously decoded one entire row group at a time via `read_row_group().to_pylist()`, materializing every row of that group into Python objects before yielding a single record. A Parquet file with large or few row groups could spike memory well past available limits during a full sync, before any record reached the tap's output. Now uses `ParquetFile.iter_batches(batch_size=65536)`, which decodes data incrementally in bounded chunks *within* each row group, so peak memory stays proportional to one batch rather than to the size of the largest row group. Output (row order and content) is unchanged.
+
 ## [0.6.0]
 * Add `sample_row_iterator()` and `is_empty()` to `parquet` module for memory-efficient discovery-time schema sampling [#32](https://github.com/singer-io/singer-encodings/pull/32)
 
