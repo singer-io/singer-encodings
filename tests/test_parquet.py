@@ -3,7 +3,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import tempfile
 from unittest import mock
-from singer_encodings.parquet import get_row_iterator, sample_row_iterator, is_empty
+from singer_encodings.parquet import get_row_iterator, sample_row_iterator, is_empty, BATCH_SIZE
 
 
 def make_parquet_file(num_rows=100, row_group_size=None, compression='snappy'):
@@ -74,6 +74,36 @@ class TestGetRowIterator(unittest.TestCase):
         rows = list(get_row_iterator(empty_file))
 
         self.assertEqual(rows, [])
+
+    def test_batch_size_is_configurable(self):
+        # Callers should be able to override the batch size (e.g. to tune
+        # memory usage for their own workload) without needing a change to
+        # this library.
+        row_group_file = make_parquet_file(num_rows=100, row_group_size=100)
+        self.addCleanup(row_group_file.close)
+        original_iter_batches = pq.ParquetFile.iter_batches
+
+        def spy_iter_batches(self_pf, **kwargs):
+            return original_iter_batches(self_pf, **kwargs)
+
+        with mock.patch.object(pq.ParquetFile, 'iter_batches', autospec=True,
+                                side_effect=spy_iter_batches) as mocked_iter_batches:
+            rows = list(get_row_iterator(row_group_file, batch_size=10))
+
+        mocked_iter_batches.assert_called_once_with(mock.ANY, batch_size=10)
+        self.assertEqual(len(rows), 100)
+
+    def test_batch_size_defaults_to_module_constant(self):
+        original_iter_batches = pq.ParquetFile.iter_batches
+
+        def spy_iter_batches(self_pf, **kwargs):
+            return original_iter_batches(self_pf, **kwargs)
+
+        with mock.patch.object(pq.ParquetFile, 'iter_batches', autospec=True,
+                                side_effect=spy_iter_batches) as mocked_iter_batches:
+            list(get_row_iterator(self.parquet_file))
+
+        mocked_iter_batches.assert_called_once_with(mock.ANY, batch_size=BATCH_SIZE)
 
 
 class TestSampleRowIterator(unittest.TestCase):

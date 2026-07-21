@@ -4,13 +4,15 @@ import pyarrow.parquet as pq
 # get_row_iterator() must yield every row - Row groups are decoded
 # incrementally in chunks of this size (rather than all at once via
 # read_row_group()) so peak memory stays proportional to one batch,
-# regardless of how large a single row group is.
+# regardless of how large a single row group is. This is pyarrow's own
+# default for iter_batches() and is used unless a caller overrides it via
+# the batch_size argument.
 BATCH_SIZE = 65536
 
 
-def get_row_iterator(file_like_handle):
+def get_row_iterator(file_like_handle, batch_size=BATCH_SIZE):
     pf = pq.ParquetFile(file_like_handle)
-    for batch in pf.iter_batches(batch_size=BATCH_SIZE):
+    for batch in pf.iter_batches(batch_size=batch_size):
         yield from batch.to_pylist()
 
 
