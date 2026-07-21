@@ -3,7 +3,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import tempfile
 from unittest import mock
-from singer_encodings.parquet import get_row_iterator, sample_row_iterator, is_empty
+from singer_encodings.parquet import get_row_iterator, sample_row_iterator, is_empty, BATCH_SIZE
 
 
 def make_parquet_file(num_rows=100, row_group_size=None, compression='snappy'):
@@ -32,6 +32,78 @@ class TestGetRowIterator(unittest.TestCase):
         self.assertEqual(rows[0], {'id': 1, 'name': 'user_1', 'value': 1.5})
         self.assertEqual(rows[99], {'id': 100, 'name': 'user_100', 'value': 150})
         self.assertEqual(len(rows), 100)
+
+    def test_does_not_call_read_row_group(self):
+        # get_row_iterator() must decode via ParquetFile.iter_batches(),
+        # never via read_row_group().to_pylist(), which materializes an
+        # entire row group's rows into Python objects up front and can
+        # spike memory well past available limits on files with large
+        # (or few) row groups during a full sync.
+        with mock.patch.object(pq.ParquetFile, 'read_row_group', autospec=True) as mocked_read:
+            list(get_row_iterator(self.parquet_file))
+
+        mocked_read.assert_not_called()
+
+    def test_decodes_a_single_large_row_group_in_bounded_batches(self):
+        # A single row group holding all 1000 rows: reading it via
+        # read_row_group().to_pylist() would materialize all 1000 rows in
+        # one shot. iter_batches() with a small batch_size should instead
+        # decode/yield it across multiple smaller batches.
+        large_row_group_file = make_parquet_file(num_rows=1000, row_group_size=1000)
+        self.addCleanup(large_row_group_file.close)
+        original_iter_batches = pq.ParquetFile.iter_batches
+        seen_batch_sizes = []
+
+        def spy_iter_batches(self_pf, batch_size=None, **kwargs):
+            batches = list(original_iter_batches(self_pf, batch_size=25, **kwargs))
+            seen_batch_sizes.extend(len(b) for b in batches)
+            return iter(batches)
+
+        with mock.patch.object(pq.ParquetFile, 'iter_batches', autospec=True) as mocked_iter_batches:
+            mocked_iter_batches.side_effect = spy_iter_batches
+            rows = list(get_row_iterator(large_row_group_file))
+
+        self.assertEqual(len(rows), 1000)
+        self.assertGreater(len(seen_batch_sizes), 1)
+        self.assertTrue(all(size <= 25 for size in seen_batch_sizes))
+
+    def test_empty_file(self):
+        empty_file = make_parquet_file(num_rows=0)
+        self.addCleanup(empty_file.close)
+
+        rows = list(get_row_iterator(empty_file))
+
+        self.assertEqual(rows, [])
+
+    def test_batch_size_is_configurable(self):
+        # Callers should be able to override the batch size (e.g. to tune
+        # memory usage for their own workload) without needing a change to
+        # this library.
+        row_group_file = make_parquet_file(num_rows=100, row_group_size=100)
+        self.addCleanup(row_group_file.close)
+        original_iter_batches = pq.ParquetFile.iter_batches
+
+        def spy_iter_batches(self_pf, **kwargs):
+            return original_iter_batches(self_pf, **kwargs)
+
+        with mock.patch.object(pq.ParquetFile, 'iter_batches', autospec=True,
+                                side_effect=spy_iter_batches) as mocked_iter_batches:
+            rows = list(get_row_iterator(row_group_file, batch_size=10))
+
+        mocked_iter_batches.assert_called_once_with(mock.ANY, batch_size=10)
+        self.assertEqual(len(rows), 100)
+
+    def test_batch_size_defaults_to_module_constant(self):
+        original_iter_batches = pq.ParquetFile.iter_batches
+
+        def spy_iter_batches(self_pf, **kwargs):
+            return original_iter_batches(self_pf, **kwargs)
+
+        with mock.patch.object(pq.ParquetFile, 'iter_batches', autospec=True,
+                                side_effect=spy_iter_batches) as mocked_iter_batches:
+            list(get_row_iterator(self.parquet_file))
+
+        mocked_iter_batches.assert_called_once_with(mock.ANY, batch_size=BATCH_SIZE)
 
 
 class TestSampleRowIterator(unittest.TestCase):
