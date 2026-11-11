@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.2]
+* Bump `pyarrow` to v26.0.1 to address CVE-2026-111497 [#34](https://github.com/singer-io/singer-encodings/pull/34)
+
 ## [0.6.1]
 * Fix `get_row_iterator()` in `parquet` module to decode via bounded batches instead of whole row groups, reducing peak memory usage on files with large row groups [#33](https://github.com/singer-io/singer-encodings/pull/33)
 
@@ -39,4 +42,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive test suite with 19 tests for Excel functionality
 - README documentation with usage examples for Excel files
 - Example scripts demonstrating Excel reader capabilities
-
