@@ -1,4 +1,11 @@
-version: 2
+version: 2.1
+
+workflows:
+  build:
+    jobs:
+      - build:
+          context: circleci-user
+
 jobs:
   build:
     docker:
@@ -17,10 +24,3 @@ jobs:
             source /usr/local/share/virtualenvs/singer-encodings/bin/activate
             uv pip install .[dev]
             pytest tests
-
-workflows:
-  version: 2
-  commit:
-    jobs:
-      - build:
-          context: circleci-user
